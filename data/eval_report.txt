@@ -1,0 +1,64 @@
+
+============================================================
+  Phase 2 -- Model Training (XGBOOST)
+============================================================
+
+Loading primary dataset: C:\Users\Syedh\Downloads\Bulidathon\data\primary_dataset.csv
+  Rows (excl. not_attempted): 11363
+  Positive rate (success=1):  0.263
+  Train: 9090  |  Val: 2273
+
+Training XGBOOST ...
+  Training complete.
+
+------------------------------------------------------------
+  Evaluation -- primary dataset splits
+------------------------------------------------------------
+  Train split                     AUC=0.7377  Acc=0.7680  LogLoss=0.5051  MajorityAcc=0.7372
+  Val split (held-out)            AUC=0.7309  Acc=0.7642  LogLoss=0.5073  MajorityAcc=0.7369
+
+------------------------------------------------------------
+  Baselines (val split)
+------------------------------------------------------------
+  [Baseline] Always-retry         AUC=0.5000  Acc=0.2631
+  [Baseline] Never-retry          AUC=0.5000  Acc=0.7369
+  [Baseline] Majority-class       AUC=0.5000  Acc=0.7369
+
+  Model val acc (0.7642) > majority baseline (0.7369)? YES
+
+------------------------------------------------------------
+  Overfitting / suspicion check
+------------------------------------------------------------
+
+  [Overfitting check]
+  Train AUC: 0.7377  |  Val AUC: 0.7309
+  Val AUC 0.7309 is in the expected range (< 0.97). OK.
+  Train-Val gap 0.0068 <= 0.05. OK.
+
+------------------------------------------------------------
+  Perturbed-parameter test set (MODEL_SPEC.md eval strategy)
+------------------------------------------------------------
+  Perturbed set rows: 5055  pos rate: 0.195
+  Perturbed test set              AUC=0.7170  Acc=0.8018  LogLoss=0.4581  MajorityAcc=0.8047
+  AUC drop (val -> perturbed): 0.0139  (expected -- parameters shifted)
+  [Baseline] Always-retry         AUC=0.5000  Acc=0.1953
+  [Baseline] Never-retry          AUC=0.5000  Acc=0.8047
+  [Baseline] Majority-class       AUC=0.5000  Acc=0.8047
+
+------------------------------------------------------------
+  SHAP explainability
+------------------------------------------------------------
+
+  [SHAP domain sanity check]
+  [OK] attempt_number negative SHAP (more attempts = worse): mean_SHAP=-0.0062
+  [WARN] is_near_payday positive SHAP (payday helps recovery): mean_SHAP=0.0000
+
+------------------------------------------------------------
+  Serializing model
+------------------------------------------------------------
+  Model saved: C:\Users\Syedh\Downloads\Bulidathon\data\model.joblib
+  Feature metadata saved: C:\Users\Syedh\Downloads\Bulidathon\data\feature_list.json
+
+============================================================
+  EVALUATION COMPLETE
+============================================================
