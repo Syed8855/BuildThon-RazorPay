@@ -1,211 +1,212 @@
-'use client';
-// Dashboard — dashboard.md spec:
-// 1. KPI strip (4 metric cards)
-// 2. Money-at-risk live counter (differentiator #1)
-// 3. Pictogram chart — stickman figures, staggered entrance (Framer Motion)
-//    Fallback if skipped: funnel bar chart
-// 4. Recent activity feed preview (5-6 rows)
+'use client'
+import { useEffect, useState, useCallback } from 'react'
+import { motion } from 'framer-motion'
+import Link from 'next/link'
+import StatusBadge from '@/components/StatusBadge'
 
-import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import KpiCard from '@/components/KpiCard';
-import StatusBadge from '@/components/StatusBadge';
+const fmtINR = n => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n??0)
+const fmtNum = n => new Intl.NumberFormat('en-IN').format(n??0)
+const ease   = [0.22,1,0.36,1]
 
-const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const fmtNum = (n) => new Intl.NumberFormat('en-IN').format(n ?? 0);
-
-// ── Stickman SVG — dashboard.md §3 Pictogram chart
-function Stickman({ color, size = 22 }) {
+/* ── Stickman pictogram ─────────────────────────────────────── */
+function Stick({ color, size=20 }) {
   return (
-    <svg width={size} height={size * 1.6} viewBox="0 0 22 36" fill={color} style={{ display: 'block' }}>
-      <circle cx="11" cy="5" r="4.5" />
-      <line x1="11" y1="9.5" x2="11" y2="24" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="11" y1="14" x2="3"  y2="20" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="11" y1="14" x2="19" y2="20" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="11" y1="24" x2="5"  y2="34" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="11" y1="24" x2="17" y2="34" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    <svg width={size} height={size*1.65} viewBox="0 0 20 33" fill="none" style={{display:'block'}}>
+      <circle cx="10" cy="5" r="4" fill={color}/>
+      <line x1="10" y1="9" x2="10" y2="22" stroke={color} strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="10" y1="14" x2="3"  y2="19" stroke={color} strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="10" y1="14" x2="17" y2="19" stroke={color} strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="10" y1="22" x2="5"  y2="31" stroke={color} strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="10" y1="22" x2="15" y2="31" stroke={color} strokeWidth="2.2" strokeLinecap="round"/>
     </svg>
-  );
+  )
 }
 
-// dashboard.md: N = ceil(max/25), rounded to clean number
-function cleanN(max) {
-  const raw = Math.ceil(max / 25);
-  if (raw <= 1)   return 1;
-  if (raw <= 5)   return 5;
-  if (raw <= 10)  return 10;
-  if (raw <= 25)  return 25;
-  if (raw <= 50)  return 50;
-  if (raw <= 100) return 100;
-  return 500;
-}
-
-function PictogramColumn({ label, count, color, totalDelay = 0 }) {
-  const N = Math.max(1, cleanN(count));
-  const figures = Math.min(Math.round(count / N), 30);
-
+function PictoCol({ label, count=0, color, delay=0, N=1 }) {
+  const figures = Math.max(1, Math.min(Math.round(count/N), 24))
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-      <div style={{
-        display: 'flex', flexWrap: 'wrap-reverse',
-        justifyContent: 'center', gap: 4,
-        width: 180, minHeight: 120,
-        alignContent: 'flex-end',
-      }}>
-        {Array.from({ length: figures }).map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              delay: totalDelay + Math.min(i * 0.06, 1.8), // cap per-figure delay
-              type: 'spring', stiffness: 280, damping: 18,
-            }}
-          >
-            <Stickman color={color} size={20} />
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+      <div style={{display:'flex',flexWrap:'wrap-reverse',justifyContent:'center',
+        gap:4,width:160,minHeight:100,alignContent:'flex-end'}}>
+        {Array.from({length:figures}).map((_,i)=>(
+          <motion.div key={i}
+            initial={{opacity:0,y:16}} animate={{opacity:1,y:0}}
+            transition={{delay:delay+Math.min(i*0.055,1.5),type:'spring',stiffness:300,damping:20}}>
+            <Stick color={color} size={19}/>
           </motion.div>
         ))}
       </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color }}>{fmtNum(count)}</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{label}</div>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontSize:22,fontWeight:700,color,letterSpacing:'-0.03em'}}>{fmtNum(count)}</div>
+        <div className="text-muted text-xs" style={{marginTop:3}}>{label}</div>
       </div>
     </div>
-  );
+  )
+}
+
+/* ── Loading state ───────────────────────────────────────────── */
+function WakingUp() {
+  const [dots, setDots] = useState('.')
+  useEffect(()=>{
+    const t = setInterval(()=>setDots(d=>d.length>=3?'.':d+'.'),500)
+    return()=>clearInterval(t)
+  },[])
+  return (
+    <div className="state-loading">
+      <div style={{fontSize:28}}>⚡</div>
+      <div className="state-loading__title">Waking up backend{dots}</div>
+      <div className="state-loading__sub">
+        The server runs on Render's free tier — takes ~30s to cold-start.
+        Data will load automatically.
+      </div>
+      <div className="state-loading__bar"/>
+    </div>
+  )
 }
 
 export default function DashboardPage() {
-  const [analytics, setAnalytics] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [analytics, setAnalytics] = useState(null)
+  const [txns,      setTxns]      = useState([])
+  const [status,    setStatus]    = useState('loading') // loading | waking | ok | error
 
-  const load = useCallback(async () => {
+  const load = useCallback(async()=>{
+    setStatus('loading')
+    const start = Date.now()
     try {
-      const [a, t] = await Promise.all([
-        fetch('/api/analytics').then(r => r.json()),
-        fetch('/api/transactions?page=1&page_size=6').then(r => r.json()),
-      ]);
-      setAnalytics(a);
-      setTransactions(t.transactions || []);
-      setError(null);
+      const [a,t] = await Promise.all([
+        fetch('/api/analytics').then(r=>{ if(!r.ok)throw r; return r.json() }),
+        fetch('/api/transactions?page=1&page_size=6').then(r=>{ if(!r.ok)throw r; return r.json() }),
+      ])
+      setAnalytics(a); setTxns(t.transactions||[])
+      setStatus('ok')
     } catch {
-      setError('Could not load data. Is the backend running?');
-    } finally {
-      setLoading(false);
+      if(Date.now()-start > 5000) setStatus('waking')
+      else setStatus('error')
+      setTimeout(load, 8000) // auto-retry
     }
-  }, []);
+  },[])
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(()=>{ load() },[load])
 
-  if (loading) return <div className="loading-state">⏳ Loading dashboard…</div>;
-  if (error)   return <div className="error-state">{error}</div>;
-
-  const { funnel, revenue } = analytics || {};
-  const maxCol = Math.max(funnel?.total_failed || 0, funnel?.retrying || 0, funnel?.recovered || 0);
-  const N = cleanN(maxCol);
+  const f   = analytics?.funnel   || {}
+  const rev = analytics?.revenue  || {}
+  const maxN = Math.max(f.total_failed||1, f.retrying||0, f.recovered||0)
+  const N = maxN > 200 ? 10 : maxN > 50 ? 5 : 1
 
   return (
-    <>
-      <div className="section__header">
-        <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Dashboard</h1>
-        <span className="text-secondary text-sm">{fmtNum(funnel?.total_failed)} transactions total</span>
-      </div>
+    <div className="page">
+      <div className="container">
 
-      {/* 1. KPI strip */}
-      <div className="section">
-        <div className="kpi-grid">
-          <KpiCard label="Recovery rate" value={`${((funnel?.recovery_rate || 0) * 100).toFixed(1)}%`}
-            colorClass="kpi-card__value--blue"
-            sub={`${fmtNum(funnel?.recovered)} of ${fmtNum((funnel?.total_failed || 0) - (funnel?.hard_failed || 0))} transient`} />
-          <KpiCard label="Revenue recovered" value={fmt.format(revenue?.recovered || 0)}
-            colorClass="kpi-card__value--gold" />
-          <KpiCard label="Active retries" value={fmtNum(funnel?.retrying)}
-            colorClass="kpi-card__value--accent" sub="in progress" />
-          <KpiCard label="Hard-failed" value={fmtNum(funnel?.hard_failed)}
-            colorClass="kpi-card__value--black" sub="card expired / stolen / closed" />
+        {/* Page header */}
+        <div className="page-hdr">
+          <div className="eyebrow"><span className="eyebrow__dot"/>Revenue Recovery</div>
+          <h1>Dashboard</h1>
+          {status==='ok' && <p className="page-hdr__sub">{fmtNum(f.total_failed)} transactions tracked · live data from backend</p>}
         </div>
-      </div>
 
-      {/* 2. Money-at-risk counter — differentiator #1 */}
-      <div className="section">
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(51,149,255,0.08), rgba(242,183,5,0.06))',
-          border: '1px solid rgba(51,149,255,0.20)',
-          borderRadius: 'var(--radius-card)',
-          padding: 'var(--sp-6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-4)',
-        }}>
-          <div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, marginBottom: 4 }}>
-              Revenue currently at risk
-            </div>
-            <div style={{ fontSize: 36, fontWeight: 700, color: '#B28A00' }}>
-              {fmt.format(revenue?.at_risk || 0)}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Transactions in retry cycle — not yet recovered or churned
-            </div>
+        {/* Loading states */}
+        {status==='loading' && <WakingUp/>}
+        {status==='waking'  && <WakingUp/>}
+        {status==='error'   && <div className="state-error">Could not reach backend. Retrying…</div>}
+
+        {/* Content — only when ok */}
+        {status==='ok' && (<>
+
+          {/* KPI strip */}
+          <div className="metric-grid">
+            {[
+              { label:'Recovery rate',   value:`${((f.recovery_rate||0)*100).toFixed(1)}%`,   cls:'metric-card__value--blue' },
+              { label:'Revenue recovered',value:fmtINR(rev.recovered||0),                       cls:'metric-card__value--gold' },
+              { label:'Active retries',  value:fmtNum(f.retrying),                              cls:'metric-card__value--blue' },
+              { label:'Hard-failed',     value:fmtNum(f.hard_failed),                           cls:'metric-card__value--dim' },
+            ].map(m=>(
+              <motion.div key={m.label} className="metric-card"
+                initial={{opacity:0,y:12}} animate={{opacity:1,y:0}}
+                transition={{duration:0.4,ease}}>
+                <div className="metric-card__label">{m.label}</div>
+                <div className={`metric-card__value ${m.cls}`}>{m.value}</div>
+              </motion.div>
+            ))}
           </div>
-          <div style={{ fontSize: 48, opacity: 0.25 }}>💸</div>
-        </div>
-      </div>
 
-      {/* 3. Pictogram chart — dashboard.md §3 */}
-      <div className="section">
-        <div className="section__header">
-          <h2 className="section__title">Recovery pictogram</h2>
-          <span className="text-secondary text-sm">each figure = {N} transaction{N !== 1 ? 's' : ''}</span>
-        </div>
-        <div style={{
-          background: 'var(--surface)',
-          borderRadius: 'var(--radius-card)',
-          padding: 'var(--sp-8) var(--sp-4)',
-          boxShadow: 'var(--shadow-card)',
-          display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', flexWrap: 'wrap', gap: 32,
-        }}>
-          <PictogramColumn label="Hard-failed" count={funnel?.hard_failed || 0} color="#0A0A0A" totalDelay={0} />
-          <PictogramColumn label="Retrying / pending" count={funnel?.retrying || 0} color="#3395FF" totalDelay={0.3} />
-          <PictogramColumn label="Recovered" count={funnel?.recovered || 0} color="#B28A00" totalDelay={0.6} />
-        </div>
-      </div>
+          {/* Revenue at risk */}
+          <motion.div className="section"
+            initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.1,duration:0.4,ease}}>
+            <div className="card card--padded" style={{
+              background:'linear-gradient(135deg,rgba(49,92,255,0.06) 0%,rgba(5,7,13,0) 100%)',
+              borderColor:'rgba(82,132,255,0.18)',
+              display:'flex',alignItems:'center',justifyContent:'space-between',gap:24
+            }}>
+              <div>
+                <div style={{fontSize:12,fontWeight:500,color:'var(--text-muted)',letterSpacing:'0.06em',
+                  textTransform:'uppercase',marginBottom:8}}>Revenue at risk</div>
+                <div style={{fontSize:38,fontWeight:700,color:'var(--status-gold)',letterSpacing:'-0.04em',lineHeight:1}}>
+                  {fmtINR(rev.at_risk||0)}
+                </div>
+                <div className="text-muted text-sm" style={{marginTop:8}}>
+                  In-flight retry cycle — not yet recovered or permanently churned
+                </div>
+              </div>
+              <div style={{fontSize:40,opacity:0.18}}>💰</div>
+            </div>
+          </motion.div>
 
-      {/* 4. Recent activity */}
-      <div className="section">
-        <div className="section__header">
-          <h2 className="section__title">Recent activity</h2>
-          <Link href="/transactions" className="section__action">View all →</Link>
-        </div>
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
-          <table className="feed-table">
-            <thead>
-              <tr>
-                <th>Transaction</th>
-                <th>Failure reason</th>
-                <th>Attempts</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 32 }}>No transactions</td></tr>
-              )}
-              {transactions.map(txn => (
-                <tr key={txn.transaction_id} onClick={() => window.location.href = '/transactions'} style={{ cursor: 'pointer' }}>
-                  <td>
-                    <span className="text-mono">{txn.transaction_id.slice(0, 14)}…</span>
-                    <div className="text-secondary text-sm">{fmt.format(txn.amount)}</div>
-                  </td>
-                  <td><span className="badge badge--reason">{txn.failure_reason.replace(/_/g, ' ')}</span></td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{txn.attempt_count}/{txn.max_attempts}</td>
-                  <td><StatusBadge status={txn.status} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {/* Pictogram chart */}
+          <motion.div className="section"
+            initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.18,duration:0.4,ease}}>
+            <div className="section-hdr">
+              <span className="section-title">Recovery pictogram</span>
+              <span className="text-muted text-xs">1 figure = {N} transaction{N!==1?'s':''}</span>
+            </div>
+            <div className="card card--padded" style={{
+              display:'flex',justifyContent:'space-evenly',alignItems:'flex-end',
+              flexWrap:'wrap',gap:32,padding:'40px 24px'
+            }}>
+              <PictoCol label="Hard-failed"       count={f.hard_failed||0} color="var(--text-secondary)" delay={0}    N={N}/>
+              <PictoCol label="In retry cycle"    count={f.retrying||0}    color="var(--accent)"         delay={0.2}  N={N}/>
+              <PictoCol label="Recovered"         count={f.recovered||0}   color="var(--status-gold)"    delay={0.4}  N={N}/>
+            </div>
+          </motion.div>
+
+          {/* Recent activity */}
+          <motion.div className="section"
+            initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.24,duration:0.4,ease}}>
+            <div className="section-hdr">
+              <span className="section-title">Recent activity</span>
+              <Link href="/transactions" className="section-action">View all →</Link>
+            </div>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Transaction</th>
+                    <th>Failure reason</th>
+                    <th>Attempts</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {txns.length===0 && (
+                    <tr><td colSpan={4}><div className="state-empty">No transactions</div></td></tr>
+                  )}
+                  {txns.map(txn=>(
+                    <tr key={txn.transaction_id} onClick={()=>window.location.href='/transactions'}>
+                      <td>
+                        <span className="text-mono">{txn.transaction_id.slice(0,16)}…</span>
+                        <div className="text-muted text-xs" style={{marginTop:3}}>{fmtINR(txn.amount)}</div>
+                      </td>
+                      <td><span className="badge badge--reason">{txn.failure_reason.replace(/_/g,' ')}</span></td>
+                      <td className="text-muted text-sm">{txn.attempt_count}/{txn.max_attempts}</td>
+                      <td><StatusBadge status={txn.status}/></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+
+        </>)}
       </div>
-    </>
-  );
+    </div>
+  )
 }

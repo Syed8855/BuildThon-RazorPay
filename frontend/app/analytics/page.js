@@ -1,169 +1,212 @@
-'use client';
-// Analytics — analytics.md spec:
-// 1. Funnel chart (horizontal stepped bars)
-// 2. Recovery rate by attempt (bar chart) — proxy for "over time"
-// 3. Global feature importance (horizontal bar chart)
-// All from GET /api/analytics — same source as dashboard (analytics.md §Notes)
-
-import { useEffect, useState } from 'react';
+'use client'
+import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Cell, LabelList,
-} from 'recharts';
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
+} from 'recharts'
 
-const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const fmtPct = (n) => `${(n * 100).toFixed(1)}%`;
+const ease = [0.22,1,0.36,1]
+const fmtINR = n => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n??0)
 
-const COLORS = {
-  hard_failed:  '#0A0A0A',
-  retrying:     '#3395FF',
-  recovered:    '#F2B705',
-  churned:      '#8B90A0',
-};
+// Consistent color palette — no rainbow, blue-first
+const C_BLUE = '#5284FF'
+const C_GOLD = '#F2B705'
+const C_DIM  = '#737A8C'
+const C_DARK = '#1A2040'
+
+// Custom dark tooltip
+const DarkTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{background:'var(--surface-el)',border:'1px solid var(--border-medium)',
+      borderRadius:'var(--radius-sm)',padding:'10px 14px',fontSize:12,fontFamily:'var(--font)'}}>
+      <div style={{fontWeight:600,color:'var(--text-primary)',marginBottom:4}}>{label}</div>
+      {payload.map(p=>(
+        <div key={p.dataKey} style={{color:'var(--text-secondary)'}}>
+          {p.name}: <strong style={{color:'var(--text-primary)'}}>{typeof p.value==='number'&&p.value<10?p.value.toFixed(1):p.value}</strong>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function WakingUp() {
+  const [d,setD]=useState('.')
+  useEffect(()=>{const t=setInterval(()=>setD(x=>x.length>=3?'.':x+'.'),500);return()=>clearInterval(t)},[])
+  return (
+    <div className="state-loading">
+      <div style={{fontSize:28}}>⚡</div>
+      <div className="state-loading__title">Loading analytics{d}</div>
+      <div className="state-loading__sub">Backend waking up — auto-refreshing in 8s</div>
+      <div className="state-loading__bar"/>
+    </div>
+  )
+}
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [data,   setData]   = useState(null)
+  const [status, setStatus] = useState('loading')
 
-  useEffect(() => {
-    fetch('/api/analytics')
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => { setError('Could not load analytics.'); setLoading(false); });
-  }, []);
+  useEffect(()=>{
+    const load = async () => {
+      try {
+        const d = await fetch('/api/analytics').then(r=>{ if(!r.ok)throw r; return r.json() })
+        setData(d); setStatus('ok')
+      } catch {
+        setStatus('waking')
+        setTimeout(load,8000)
+      }
+    }
+    load()
+  },[])
 
-  if (loading) return <div className="loading-state">⏳ Loading analytics…</div>;
-  if (error)   return <div className="error-state">{error}</div>;
+  if (status==='loading'||status==='waking') return (
+    <div className="page"><div className="container"><WakingUp/></div></div>
+  )
+  if (!data) return null
 
-  const { funnel, revenue, recovery_by_reason, recovery_by_attempt, global_feature_importance } = data;
+  const { funnel, revenue, recovery_by_reason, recovery_by_attempt, global_feature_importance } = data
 
-  // Funnel data — analytics.md §1: Failed → Retried → Recovered / Churned
   const funnelData = [
-    { name: 'Total failed',    value: funnel.total_failed,  fill: '#E2E6EB' },
-    { name: 'Hard-failed',     value: funnel.hard_failed,   fill: COLORS.hard_failed },
-    { name: 'Retrying',        value: funnel.retrying,      fill: COLORS.retrying },
-    { name: 'Recovered',       value: funnel.recovered,     fill: COLORS.recovered },
-    { name: 'Churned',         value: funnel.churned,       fill: COLORS.churned },
-  ];
+    { name:'Total failed',  value:funnel.total_failed,  fill:C_DIM  },
+    { name:'Hard-failed',   value:funnel.hard_failed,   fill:'#4A4A5E'},
+    { name:'In retry',      value:funnel.retrying,      fill:C_BLUE  },
+    { name:'Recovered',     value:funnel.recovered,     fill:C_GOLD  },
+    { name:'Churned',       value:funnel.churned,       fill:'#3A3A4E'},
+  ]
 
-  // Recovery by reason
-  const reasonData = Object.entries(recovery_by_reason || {})
-    .map(([reason, rate]) => ({ name: reason.replace(/_/g, ' '), rate: parseFloat((rate * 100).toFixed(1)) }))
-    .sort((a, b) => b.rate - a.rate);
+  const reasonData = Object.entries(recovery_by_reason||{})
+    .map(([r,rate])=>({name:r.replace(/_/g,' '),rate:parseFloat((rate*100).toFixed(1))}) )
+    .sort((a,b)=>b.rate-a.rate)
 
-  // Recovery by attempt
-  const attemptData = (recovery_by_attempt || []).map(r => ({
-    name: `Attempt ${r.attempt_number}`,
-    rate: parseFloat((r.recovery_rate * 100).toFixed(1)),
-    n: r.n_attempts,
-  }));
+  const attemptData = (recovery_by_attempt||[]).map(r=>({
+    name:`Attempt ${r.attempt_number}`,
+    rate:parseFloat((r.recovery_rate*100).toFixed(1)),
+    n:r.n_attempts,
+  }))
 
-  // Feature importance
-  const fiData = (global_feature_importance || []).slice(0, 8).map(f => ({
-    name: f.feature.replace(/_/g, ' '),
-    importance: parseFloat((f.importance * 100).toFixed(2)),
-  }));
+  const fiData = (global_feature_importance||[]).slice(0,8).map(f=>({
+    name:f.feature.replace(/_/g,' '),
+    val:parseFloat((f.importance*100).toFixed(1)),
+  }))
 
   return (
-    <>
-      <div className="section__header" style={{ marginBottom: 'var(--sp-6)' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Analytics</h1>
-        <span className="text-secondary text-sm">All data from the same source as the dashboard</span>
-      </div>
+    <div className="page">
+      <div className="container">
+        <div className="page-hdr">
+          <div className="eyebrow"><span className="eyebrow__dot"/>Analytics</div>
+          <h1>Recovery analytics</h1>
+          <p className="page-hdr__sub">Full-pipeline performance · all metrics from the same backend source</p>
+        </div>
 
-      {/* Revenue KPIs */}
-      <div className="section">
-        <div className="kpi-grid">
+        {/* KPIs */}
+        <motion.div className="metric-grid"
+          initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{duration:0.4,ease}}>
           {[
-            { label: 'Recovery rate',     value: fmtPct(funnel.recovery_rate),      color: 'kpi-card__value--blue' },
-            { label: 'Revenue recovered', value: fmt.format(revenue.recovered),      color: 'kpi-card__value--gold' },
-            { label: 'Revenue at risk',   value: fmt.format(revenue.at_risk),        color: 'kpi-card__value--accent' },
-            { label: 'Churned',           value: funnel.churned,                     color: '' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="kpi-card">
-              <span className="kpi-card__label">{label}</span>
-              <span className={`kpi-card__value ${color}`}>{value}</span>
-            </div>
+            {label:'Recovery rate',   value:`${((funnel.recovery_rate||0)*100).toFixed(1)}%`,cls:'metric-card__value--blue'},
+            {label:'Revenue recovered',value:fmtINR(revenue.recovered||0),                   cls:'metric-card__value--gold'},
+            {label:'Revenue at risk',  value:fmtINR(revenue.at_risk||0),                     cls:''},
+            {label:'Churned',          value:funnel.churned,                                  cls:'metric-card__value--dim'},
+          ].map((m,i)=>(
+            <motion.div key={m.label} className="metric-card"
+              initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
+              transition={{delay:i*0.06,duration:0.35,ease}}>
+              <div className="metric-card__label">{m.label}</div>
+              <div className={`metric-card__value ${m.cls}`}>{m.value}</div>
+            </motion.div>
           ))}
-        </div>
-      </div>
+        </motion.div>
 
-      {/* 1. Funnel chart — analytics.md §1 */}
-      <div className="section">
-        <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery funnel</h2>
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={funnelData} layout="vertical" margin={{ left: 16, right: 40 }}>
-              <XAxis type="number" hide />
-              <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 13, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => [v, 'Count']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
-              <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={32}>
-                {funnelData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
-                <LabelList dataKey="value" position="right" style={{ fontSize: 13, fontWeight: 600 }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--sp-6)' }}>
-        {/* 2. Recovery rate by failure reason */}
-        <div className="section">
-          <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery by failure reason</h2>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={reasonData} layout="vertical" margin={{ left: 16, right: 40 }}>
-                <XAxis type="number" unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => [`${v}%`, 'Recovery rate']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
-                <Bar dataKey="rate" fill="#3395FF" radius={[0, 6, 6, 0]} maxBarSize={24}>
-                  <LabelList dataKey="rate" position="right" formatter={v => `${v}%`} style={{ fontSize: 12 }} />
+        {/* Funnel */}
+        <motion.div className="section"
+          initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.1,duration:0.4,ease}}>
+          <div className="section-hdr"><span className="section-title">Recovery funnel</span></div>
+          <div className="card card--padded" style={{padding:'24px 24px 8px'}}>
+            <ResponsiveContainer width="100%" height={210}>
+              <BarChart data={funnelData} layout="vertical" margin={{left:8,right:48,top:4,bottom:4}}>
+                <XAxis type="number" hide/>
+                <YAxis type="category" dataKey="name" width={100}
+                  tick={{fontSize:12,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                <Tooltip content={<DarkTooltip/>}/>
+                <Bar dataKey="value" radius={[0,6,6,0]} maxBarSize={28}>
+                  {funnelData.map(e=><Cell key={e.name} fill={e.fill}/>)}
+                  <LabelList dataKey="value" position="right" style={{fill:'var(--text-muted)',fontSize:12,fontFamily:'var(--font)'}}/>
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </motion.div>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:20}}>
+
+          {/* Recovery by reason */}
+          <motion.div className="section"
+            initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.16,duration:0.4,ease}}>
+            <div className="section-hdr"><span className="section-title">Recovery by failure reason</span></div>
+            <div className="card card--padded" style={{padding:'24px 24px 8px'}}>
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={reasonData} layout="vertical" margin={{left:8,right:48,top:4,bottom:4}}>
+                  <XAxis type="number" unit="%" domain={[0,100]} tick={{fontSize:11,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                  <YAxis type="category" dataKey="name" width={120}
+                    tick={{fontSize:11,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                  <Tooltip content={<DarkTooltip/>}/>
+                  <Bar dataKey="rate" fill={C_BLUE} radius={[0,5,5,0]} maxBarSize={22}>
+                    <LabelList dataKey="rate" position="right" formatter={v=>`${v}%`}
+                      style={{fill:'var(--text-muted)',fontSize:11,fontFamily:'var(--font)'}}/>
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+
+          {/* Recovery by attempt */}
+          <motion.div className="section"
+            initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.22,duration:0.4,ease}}>
+            <div className="section-hdr"><span className="section-title">Recovery rate by attempt</span></div>
+            <div className="card card--padded" style={{padding:'24px 24px 8px'}}>
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={attemptData} margin={{left:0,right:16,top:4,bottom:4}}>
+                  <XAxis dataKey="name" tick={{fontSize:11,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                  <YAxis unit="%" domain={[0,60]} tick={{fontSize:11,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                  <Tooltip content={<DarkTooltip/>}/>
+                  <Bar dataKey="rate" fill={C_GOLD} radius={[5,5,0,0]} maxBarSize={44}>
+                    <LabelList dataKey="rate" position="top" formatter={v=>`${v}%`}
+                      style={{fill:'var(--text-muted)',fontSize:11,fontFamily:'var(--font)'}}/>
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <p className="text-muted text-xs" style={{textAlign:'center',marginTop:8,marginBottom:8}}>
+                Recovery rate declines monotonically with attempt — expected signal
+              </p>
+            </div>
+          </motion.div>
         </div>
 
-        {/* 2b. Recovery rate by attempt — analytics.md §2 proxy for "over time" */}
-        <div className="section">
-          <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery rate by attempt number</h2>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={attemptData} margin={{ left: 8, right: 24 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis unit="%" domain={[0, 55]} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v, n, p) => [`${v}% (n=${p.payload.n})`, 'Recovery rate']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
-                <Bar dataKey="rate" fill="#F2B705" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                  <LabelList dataKey="rate" position="top" formatter={v => `${v}%`} style={{ fontSize: 12 }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8, textAlign: 'center' }}>
-              Recovery rate declines monotonically with attempt number — a key sanity check from DATA_SCHEMA.md
-            </p>
-          </div>
-        </div>
+        {/* Feature importance */}
+        {fiData.length>0 && (
+          <motion.div className="section"
+            initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.28,duration:0.4,ease}}>
+            <div className="section-hdr">
+              <span className="section-title">Global feature importance (XGBoost)</span>
+            </div>
+            <div className="card card--padded" style={{padding:'24px 24px 8px'}}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={fiData} layout="vertical" margin={{left:16,right:56,top:4,bottom:4}}>
+                  <XAxis type="number" tick={{fontSize:11,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                  <YAxis type="category" dataKey="name" width={180}
+                    tick={{fontSize:12,fill:C_DIM}} axisLine={false} tickLine={false}/>
+                  <Tooltip content={<DarkTooltip/>}/>
+                  <Bar dataKey="val" radius={[0,6,6,0]} maxBarSize={26}>
+                    {fiData.map((e,i)=><Cell key={e.name} fill={`hsl(${224+i*4},${70-i*3}%,${60-i*3}%)`}/>)}
+                    <LabelList dataKey="val" position="right"
+                      style={{fill:'var(--text-muted)',fontSize:12,fontFamily:'var(--font)'}}/>
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        )}
       </div>
-
-      {/* 3. Global feature importance — analytics.md §3 */}
-      {fiData.length > 0 && (
-        <div className="section">
-          <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Global feature importance (XGBoost)</h2>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={fiData} layout="vertical" margin={{ left: 24, right: 56 }}>
-                <XAxis type="number" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={180} tick={{ fontSize: 13, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v) => [v, 'Importance score']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
-                <Bar dataKey="importance" fill="#3395FF" radius={[0, 6, 6, 0]} maxBarSize={28}>
-                  <LabelList dataKey="importance" position="right" style={{ fontSize: 12, fontWeight: 600 }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-    </>
-  );
+    </div>
+  )
 }

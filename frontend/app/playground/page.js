@@ -1,295 +1,284 @@
-'use client';
-// Playground — playground.md spec:
-// - Input panel: failure reason, attempt number, time since last, segment, run button
-// - Validate inputs, show inline error on missing fields
-// - Output: orchestrator decision (shown first), rules-vs-ML comparison, 
-//   model output with FlipCard reuse (playground.md §3), SHAP bars, customer message
+'use client'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import OrchestratorLine from '@/components/OrchestratorLine'
+import ShapBars from '@/components/ShapBars'
 
-import { useState } from 'react';
-import OrchestratorLine from '@/components/OrchestratorLine';
-import ShapBars from '@/components/ShapBars';
-import FlipCard from '@/components/FlipCard';
+const ease = [0.22,1,0.36,1]
 
 const FAILURE_REASONS = [
   'insufficient_funds','issuer_declined','do_not_honor',
   'processing_error','network_timeout','card_expired',
   'card_stolen','account_closed',
-];
-const PAYMENT_METHODS = ['card','upi','netbanking'];
-const MERCHANTS = ['saas','d2c_subscription','ecommerce_one_time'];
-const SEGMENTS = ['new','returning','high_value'];
-
-const REQUIRED = ['failure_reason','payment_method','merchant_category','customer_segment'];
+]
+const METHODS   = ['card','upi','netbanking']
+const MERCHANTS = ['saas','d2c_subscription','ecommerce_one_time']
+const SEGMENTS  = ['new','returning','high_value']
+const REQUIRED  = ['failure_reason','payment_method','merchant_category','customer_segment']
 
 const DEFAULT = {
-  failure_reason: '',
-  attempt_number: 1,
-  time_since_last_attempt_hours: 24,
-  time_since_first_failure_hours: 24,
-  is_near_payday: false,
-  payment_method: '',
-  is_recurring: true,
-  merchant_category: '',
-  customer_segment: '',
-  historical_failure_rate: 0.15,
-  amount: 999,
-};
+  failure_reason:'', attempt_number:1,
+  time_since_last_attempt_hours:24, time_since_first_failure_hours:24,
+  is_near_payday:false, payment_method:'', is_recurring:true,
+  merchant_category:'', customer_segment:'',
+  historical_failure_rate:0.15, amount:999,
+}
 
-const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const fmtINR = n => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n??0)
 
-export default function PlaygroundPage() {
-  const [form, setForm] = useState(DEFAULT);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+function Field({ label, error, children }) {
+  return (
+    <div className="field">
+      <label className="field-label">{label}</label>
+      {children}
+      {error && <div className="field-error">{error}</div>}
+    </div>
+  )
+}
 
-  const set = (k, v) => {
-    setForm(f => ({ ...f, [k]: v }));
-    if (fieldErrors[k]) setFieldErrors(e => ({ ...e, [k]: null }));
-  };
+function AttemptPicker({ value, onChange }) {
+  return (
+    <div style={{display:'flex',gap:6}}>
+      {[1,2,3,4].map(n=>(
+        <button key={n} onClick={()=>onChange(n)} style={{
+          flex:1, height:38, borderRadius:'var(--radius-sm)',
+          border:`1px solid ${value===n?'var(--accent)':'var(--border)'}`,
+          background:value===n?'var(--accent-subtle)':'transparent',
+          color:value===n?'var(--accent)':'var(--text-muted)',
+          fontFamily:'var(--font)', fontWeight:600, fontSize:14, cursor:'pointer',
+          transition:'all 150ms var(--ease-out)',
+        }}>{n}</button>
+      ))}
+    </div>
+  )
+}
 
-  const validate = () => {
-    const errors = {};
-    REQUIRED.forEach(k => {
-      if (!form[k]) errors[k] = 'This field is required';
-    });
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const run = async () => {
-    if (!validate()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      }).then(r => r.json());
-      setResult(data);
-    } catch {
-      setError('Simulation failed. Is the backend reachable?');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const prob = result?.model_output?.success_probability ?? null;
+function ResultPanel({ result }) {
+  if (!result) return null
+  const prob = result.model_output?.success_probability ?? null
+  const probCls = prob===null?'':prob>0.5?'prob-val--high':prob>0.25?'prob-val--mid':'prob-val--low'
+  const mlChanged = result.orchestrator_decision?.action !== result.rules_only_decision?.action
 
   return (
-    <>
-      <div className="section__header" style={{ marginBottom: 'var(--sp-6)' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Simulation playground</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            Test any hypothetical transaction through the full orchestrator pipeline
-          </p>
+    <motion.div style={{display:'flex',flexDirection:'column',gap:16}}
+      initial={{opacity:0,y:12}} animate={{opacity:1,y:0}}
+      transition={{duration:0.4,ease}}>
+
+      {/* 1. Orchestrator decision — first per spec */}
+      <div className="card card--padded">
+        <div style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',
+          textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:12}}>
+          Orchestrator decision
         </div>
+        <OrchestratorLine decision={result.orchestrator_decision}/>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) 1fr', gap: 'var(--sp-6)', alignItems: 'start' }}>
+      {/* 2. Rules vs ML comparison */}
+      <div className="card card--padded">
+        <div style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',
+          textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:12}}>
+          Rules only vs Rules + ML
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div>
+            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:6,fontWeight:500}}>Rules only</div>
+            <OrchestratorLine decision={result.rules_only_decision}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:6,fontWeight:500}}>Rules + ML</div>
+            <OrchestratorLine decision={result.orchestrator_decision}/>
+          </div>
+        </div>
+        {mlChanged && (
+          <div style={{marginTop:12,padding:'10px 12px',
+            background:'rgba(82,132,255,0.07)',border:'1px solid rgba(82,132,255,0.15)',
+            borderRadius:'var(--radius-sm)',fontSize:13,color:'var(--accent)'}}>
+            ✦ ML layer changed the outcome — model adds measurable value over rules alone
+          </div>
+        )}
+      </div>
 
-        {/* ── Input panel */}
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 'var(--sp-4)' }}>Transaction parameters</h3>
+      {/* 3. Model output */}
+      {result.model_output && (
+        <div className="card card--padded">
+          <div style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',
+            textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:12}}>
+            Model prediction
+          </div>
+          <div style={{display:'flex',gap:24,alignItems:'flex-start',flexWrap:'wrap'}}>
+            <div>
+              <div className={`prob-val ${probCls}`}>{prob!=null?(prob*100).toFixed(0):'-'}%</div>
+              <div className="text-muted text-sm" style={{marginTop:4}}>success probability</div>
+            </div>
+            <div style={{flex:1,minWidth:200}}>
+              <ShapBars contributions={result.model_output.shap_contributions}/>
+            </div>
+          </div>
+        </div>
+      )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-            <Field label="Failure reason *" error={fieldErrors.failure_reason}>
-              <select id="sim-failure-reason" value={form.failure_reason} onChange={e => set('failure_reason', e.target.value)}>
+      {/* 4. Customer message */}
+      {result.customer_message && (
+        <div className="card card--padded">
+          <div style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',
+            textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:10}}>
+            Customer notification
+          </div>
+          <p style={{fontSize:13,lineHeight:1.65,color:'var(--text-secondary)',fontStyle:'italic'}}>
+            "{result.customer_message}"
+          </p>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+export default function PlaygroundPage() {
+  const [form,   setForm]   = useState(DEFAULT)
+  const [errors, setErrors] = useState({})
+  const [result, setResult] = useState(null)
+  const [loading,setLoading]= useState(false)
+  const [error,  setError]  = useState(null)
+
+  const set = (k,v) => {
+    setForm(f=>({...f,[k]:v}))
+    if(errors[k]) setErrors(e=>({...e,[k]:null}))
+  }
+
+  const validate = () => {
+    const e = {}
+    REQUIRED.forEach(k=>{ if(!form[k]) e[k]='Required' })
+    setErrors(e)
+    return Object.keys(e).length===0
+  }
+
+  const run = async () => {
+    if(!validate()) return
+    setLoading(true); setError(null)
+    try {
+      const d = await fetch('/api/simulate',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(form),
+      }).then(r=>{ if(!r.ok)throw r; return r.json() })
+      setResult(d)
+    } catch {
+      setError('Simulation failed — is the backend reachable? (Render cold-start ~30s)')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="page">
+      <div className="container">
+        <div className="page-hdr">
+          <div className="eyebrow"><span className="eyebrow__dot"/>Simulation</div>
+          <h1>Playground</h1>
+          <p className="page-hdr__sub">
+            Test any hypothetical transaction through the full rules + ML orchestrator pipeline
+          </p>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'minmax(300px,380px) 1fr',gap:24,alignItems:'start'}}>
+
+          {/* Input panel */}
+          <div className="card card--padded" style={{display:'flex',flexDirection:'column',gap:16}}>
+            <div style={{fontSize:15,fontWeight:600,letterSpacing:'-0.02em',marginBottom:4}}>
+              Transaction parameters
+            </div>
+
+            <Field label="Failure reason *" error={errors.failure_reason}>
+              <select value={form.failure_reason} onChange={e=>set('failure_reason',e.target.value)}>
                 <option value="">— select —</option>
-                {FAILURE_REASONS.map(r => <option key={r} value={r}>{r.replace(/_/g,' ')}</option>)}
+                {FAILURE_REASONS.map(r=><option key={r} value={r}>{r.replace(/_/g,' ')}</option>)}
               </select>
             </Field>
 
-            <Field label="Amount (INR)">
-              <input id="sim-amount" type="number" value={form.amount} onChange={e => set('amount', Number(e.target.value))} min={1} />
+            <Field label="Amount (₹)">
+              <input type="number" value={form.amount} onChange={e=>set('amount',Number(e.target.value))} min={1}/>
             </Field>
 
             <Field label="Attempt number">
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[1,2,3,4].map(n => (
-                  <button key={n} id={`sim-attempt-${n}`}
-                    onClick={() => set('attempt_number', n)}
-                    style={{
-                      flex: 1, padding: '8px 0',
-                      background: form.attempt_number === n ? 'var(--accent)' : 'var(--bg)',
-                      color: form.attempt_number === n ? '#fff' : 'var(--text-secondary)',
-                      border: `1px solid ${form.attempt_number === n ? 'var(--accent)' : 'var(--border)'}`,
-                      borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14,
-                      transition: 'all 200ms',
-                    }}
-                  >{n}</button>
-                ))}
-              </div>
+              <AttemptPicker value={form.attempt_number} onChange={v=>set('attempt_number',v)}/>
             </Field>
 
             <Field label="Hours since last attempt">
-              <input id="sim-hours-last" type="number" value={form.time_since_last_attempt_hours} onChange={e => set('time_since_last_attempt_hours', Number(e.target.value))} min={0} />
+              <input type="number" value={form.time_since_last_attempt_hours} onChange={e=>set('time_since_last_attempt_hours',Number(e.target.value))} min={0}/>
             </Field>
 
-            <Field label="Payment method *" error={fieldErrors.payment_method}>
-              <select id="sim-payment-method" value={form.payment_method} onChange={e => set('payment_method', e.target.value)}>
+            <Field label="Payment method *" error={errors.payment_method}>
+              <select value={form.payment_method} onChange={e=>set('payment_method',e.target.value)}>
                 <option value="">— select —</option>
-                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                {METHODS.map(m=><option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
 
-            <Field label="Merchant category *" error={fieldErrors.merchant_category}>
-              <select id="sim-merchant" value={form.merchant_category} onChange={e => set('merchant_category', e.target.value)}>
+            <Field label="Merchant category *" error={errors.merchant_category}>
+              <select value={form.merchant_category} onChange={e=>set('merchant_category',e.target.value)}>
                 <option value="">— select —</option>
-                {MERCHANTS.map(m => <option key={m} value={m}>{m.replace(/_/g,' ')}</option>)}
+                {MERCHANTS.map(m=><option key={m} value={m}>{m.replace(/_/g,' ')}</option>)}
               </select>
             </Field>
 
-            <Field label="Customer segment *" error={fieldErrors.customer_segment}>
-              <select id="sim-segment" value={form.customer_segment} onChange={e => set('customer_segment', e.target.value)}>
+            <Field label="Customer segment *" error={errors.customer_segment}>
+              <select value={form.customer_segment} onChange={e=>set('customer_segment',e.target.value)}>
                 <option value="">— select —</option>
-                {SEGMENTS.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+                {SEGMENTS.map(s=><option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
               </select>
             </Field>
 
-            <div style={{ display: 'flex', gap: 'var(--sp-4)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-                <input id="sim-recurring" type="checkbox" checked={form.is_recurring} onChange={e => set('is_recurring', e.target.checked)} />
-                Recurring subscription
+            <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+              <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,
+                color:'var(--text-secondary)',cursor:'pointer'}}>
+                <input type="checkbox" checked={form.is_recurring} onChange={e=>set('is_recurring',e.target.checked)}/>
+                Recurring
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-                <input id="sim-payday" type="checkbox" checked={form.is_near_payday} onChange={e => set('is_near_payday', e.target.checked)} />
+              <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,
+                color:'var(--text-secondary)',cursor:'pointer'}}>
+                <input type="checkbox" checked={form.is_near_payday} onChange={e=>set('is_near_payday',e.target.checked)}/>
                 Near payday
               </label>
             </div>
+
+            <button className="btn btn-primary" onClick={run} disabled={loading}
+              style={{width:'100%',marginTop:4}}>
+              {loading ? 'Simulating…' : 'Run simulation →'}
+            </button>
+
+            {error && <div className="state-error">{error}</div>}
           </div>
 
-          <button id="sim-run-btn" onClick={run} disabled={loading} style={{
-            marginTop: 'var(--sp-4)', width: '100%', padding: '11px',
-            background: loading ? 'var(--border)' : 'var(--accent)',
-            color: '#fff', border: 'none', borderRadius: 8,
-            fontWeight: 600, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background 200ms',
-          }}>
-            {loading ? 'Simulating…' : 'Run simulation →'}
-          </button>
-
-          {error && <div className="error-state" style={{ marginTop: 'var(--sp-3)' }}>{error}</div>}
-        </div>
-
-        {/* ── Output panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-          {!result && !loading && (
-            <div style={{
-              background: 'var(--surface)', borderRadius: 'var(--radius-card)',
-              padding: 'var(--sp-8)', textAlign: 'center',
-              color: 'var(--text-secondary)', fontSize: 14,
-              boxShadow: 'var(--shadow-card)', minHeight: 200,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              Configure a transaction and click "Run simulation" to see what the orchestrator decides.
-            </div>
-          )}
-          {loading && <div className="loading-state">⏳ Simulating…</div>}
-
-          {result && (
-            <>
-              {/* 1. Orchestrator decision (shown first per playground.md) */}
-              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                  Orchestrator decision
-                </div>
-                <OrchestratorLine decision={result.orchestrator_decision} />
-              </div>
-
-              {/* 2. Rules-vs-ML comparison — playground.md §2, non-droppable */}
-              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                  Rules only vs ML-enhanced
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Rules only</div>
-                    <OrchestratorLine decision={result.rules_only_decision} />
+          {/* Output panel */}
+          <div>
+            <AnimatePresence mode="wait">
+              {!result && !loading && (
+                <motion.div key="empty" className="card card--padded"
+                  initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                  style={{display:'flex',alignItems:'center',justifyContent:'center',
+                    minHeight:320,textAlign:'center',flexDirection:'column',gap:12}}>
+                  <div style={{fontSize:32,opacity:0.3}}>⚙️</div>
+                  <div className="text-secondary" style={{fontSize:14}}>
+                    Configure a transaction and click<br/>"Run simulation" to see the orchestrator decision
                   </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Rules + ML</div>
-                    <OrchestratorLine decision={result.orchestrator_decision} />
-                  </div>
-                </div>
-                {result.orchestrator_decision?.action !== result.rules_only_decision?.action && (
-                  <div style={{
-                    marginTop: 12, padding: '10px 14px',
-                    background: 'rgba(242,183,5,0.08)', borderRadius: 6,
-                    fontSize: 13, color: '#B28A00',
-                  }}>
-                    ✨ The ML layer changed the decision — model adds measurable value over rules alone.
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Model output with FlipCard — playground.md §3 */}
-              {result.model_output && (
-                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                    Model output
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-                    {/* Scaled-down hero card — playground.md: "reuses the same Framer Motion component" */}
-                    <FlipCard scale="small" probability={prob} autoPlay={false} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 42, fontWeight: 700, color: prob > 0.5 ? '#F2B705' : prob > 0.25 ? '#3395FF' : 'var(--text-secondary)', lineHeight: 1 }}>
-                        {(prob * 100).toFixed(0)}%
-                      </div>
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, marginBottom: 16 }}>
-                        success probability
-                      </div>
-                      <ShapBars contributions={result.model_output.shap_contributions} />
-                    </div>
-                  </div>
-                </div>
+                </motion.div>
               )}
-
-              {/* 4. Customer message — playground.md §4 */}
-              {result.customer_message && (
-                <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                    Customer message preview
-                  </div>
-                  <p style={{ fontSize: 14, fontStyle: 'italic', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                    "{result.customer_message}"
-                  </p>
-                </div>
+              {loading && (
+                <motion.div key="loading" className="card card--padded state-loading"
+                  initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                  <div style={{fontSize:24}}>⚡</div>
+                  <div className="state-loading__title">Simulating…</div>
+                  <div className="state-loading__bar"/>
+                </motion.div>
               )}
-            </>
-          )}
+              {result && !loading && (
+                <motion.div key="result"
+                  initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                  <ResultPanel result={result}/>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        select, input[type="number"], input[type="text"] {
-          width: 100%;
-          padding: 8px 10px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: var(--bg);
-          color: var(--text-primary);
-          font-size: 14px;
-          font-family: inherit;
-          outline: none;
-          transition: border-color 200ms;
-        }
-        select:focus, input:focus { border-color: var(--accent); }
-        select.error, input.error { border-color: #E53935; }
-      `}</style>
-    </>
-  );
-}
-
-function Field({ label, children, error }) {
-  return (
-    <div>
-      <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, display: 'block', marginBottom: 5 }}>{label}</label>
-      {children}
-      {error && <div style={{ fontSize: 12, color: '#E53935', marginTop: 4 }}>{error}</div>}
     </div>
-  );
+  )
 }
