@@ -1,143 +1,283 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import KpiCard from '@/components/KpiCard';
-import StatusBadge from '@/components/StatusBadge';
+// Hero page — hero.md spec exactly.
+// Background: deep Razorpay blue #072654 with subtle grid texture.
+// Card animation: FlipCard component (payment failed → recovered).
+// CTAs: "Try the demo" → /playground, "How it works" → /design-decisions
+// Below fold: stat strip + 3 feature callouts.
+
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
+import FlipCard from '@/components/FlipCard';
 
-// Format helpers — UI_SPEC.md: always use Intl.NumberFormat, never raw floats
-const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const fmtNum = (n) => new Intl.NumberFormat('en-IN').format(n);
+const FEATURES = [
+  {
+    icon: '🔄',
+    title: 'Smart retries',
+    desc: 'Escalating backoff schedule with ML-gated skips — never waste an attempt on a hopeless transaction.',
+  },
+  {
+    icon: '🧠',
+    title: 'Explainable AI',
+    desc: 'Every prediction comes with SHAP contributions — merchants see exactly why the model made each call.',
+  },
+  {
+    icon: '🛡️',
+    title: 'Rule guardrails',
+    desc: 'Hard-fail short-circuits, cycle cutoffs, and spacing rules fire before the model is ever consulted.',
+  },
+];
 
-export default function DashboardPage() {
-  const [analytics, setAnalytics] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function HeroPage() {
+  const [headlineVisible, setHeadlineVisible] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const [a, t] = await Promise.all([
-        fetch('/api/analytics').then(r => r.json()),
-        fetch('/api/transactions?page=1&page_size=6').then(r => r.json()),
-      ]);
-      setAnalytics(a);
-      setTransactions(t.transactions || []);
-      setError(null);
-    } catch (e) {
-      setError('Could not load data. Is the backend running?');
-    } finally {
-      setLoading(false);
-    }
+  // hero.md: headline reveals at 700-900ms, overlapping tail of flip
+  useEffect(() => {
+    const t = setTimeout(() => setHeadlineVisible(true), 750);
+    return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) return <div className="loading-state">⏳ Loading dashboard...</div>;
-  if (error)   return <div className="error-state">{error}</div>;
-
-  const { funnel, revenue } = analytics || {};
-
   return (
-    <>
-      <div className="section">
-        <div className="section__header">
-          <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Dashboard</h1>
-          <span className="text-secondary text-sm">
-            {fmtNum(funnel?.total_failed || 0)} transactions total
-          </span>
-        </div>
+    <div style={{ minHeight: '100vh', fontFamily: 'Inter, system-ui, sans-serif' }}>
 
-        {/* KPI strip — UI_SPEC.md dashboard.md */}
-        <div className="kpi-grid">
-          <KpiCard
-            label="Recovery rate"
-            value={`${((funnel?.recovery_rate || 0) * 100).toFixed(1)}%`}
-            colorClass="kpi-card__value--blue"
-            sub={`${fmtNum(funnel?.recovered || 0)} of ${fmtNum((funnel?.total_failed || 0) - (funnel?.hard_failed || 0))} transient`}
-          />
-          <KpiCard
-            label="Revenue recovered"
-            value={fmt.format(revenue?.recovered || 0)}
-            colorClass="kpi-card__value--gold"
-          />
-          <KpiCard
-            label="Active retries"
-            value={fmtNum(funnel?.retrying || 0)}
-            colorClass="kpi-card__value--accent"
-            sub="in progress"
-          />
-          <KpiCard
-            label="Hard-failed / unrecoverable"
-            value={fmtNum(funnel?.hard_failed || 0)}
-            colorClass="kpi-card__value--black"
-            sub="card expired, stolen, closed"
-          />
-        </div>
-      </div>
+      {/* ── Hero section — deep Razorpay blue, hero.md §Layout */}
+      <section style={{
+        background: 'linear-gradient(135deg, #072654 0%, #0a3572 60%, #061d42 100%)',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '80px 24px 48px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
 
-      {/* Revenue at risk — DIFFERENTIATORS.md #1 */}
-      <div className="section">
+        {/* Subtle grid texture — hero.md "optional grid texture for depth" */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(51,149,255,0.08), rgba(242,183,5,0.06))',
-          border: '1px solid rgba(51,149,255,0.20)',
-          borderRadius: 'var(--radius-card)',
-          padding: 'var(--sp-6)',
+          position: 'absolute', inset: 0,
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)
+          `,
+          backgroundSize: '48px 48px',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Accent glow blobs */}
+        <div style={{
+          position: 'absolute', top: '20%', right: '15%',
+          width: 400, height: 400,
+          background: 'radial-gradient(circle, rgba(51,149,255,0.12) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '15%', left: '10%',
+          width: 300, height: 300,
+          background: 'radial-gradient(circle, rgba(242,183,5,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Content: card left, headline right on desktop */}
+        <div style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 'var(--sp-4)',
+          justifyContent: 'center',
+          gap: 64,
+          maxWidth: 960,
+          width: '100%',
+          position: 'relative',
+          zIndex: 1,
+          flexWrap: 'wrap',
         }}>
-          <div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '4px' }}>
-              Revenue currently at risk
-            </div>
-            <div style={{ fontSize: '36px', fontWeight: 700, color: '#B28A00' }}>
-              {fmt.format(revenue?.at_risk || 0)}
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Retrying transactions — not yet recovered or churned
-            </div>
+
+          {/* Card + sleeve animation — hero.md centerpiece */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FlipCard scale="large" autoPlay={true} />
           </div>
-          <div style={{ fontSize: '48px', opacity: 0.3 }}>💸</div>
-        </div>
-      </div>
 
-      {/* Recent activity — transaction feed preview */}
-      <div className="section">
-        <div className="section__header">
-          <h2 className="section__title">Recent activity</h2>
-          <Link href="/transactions" className="section__action">View all →</Link>
+          {/* Headline + subtext + CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={headlineVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            style={{ maxWidth: 480, textAlign: 'left' }}
+          >
+            {/* Razorpay brand pill */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(51,149,255,0.15)',
+              border: '1px solid rgba(51,149,255,0.30)',
+              borderRadius: 999,
+              padding: '4px 14px',
+              fontSize: 12, fontWeight: 600,
+              color: '#4DA6FF',
+              marginBottom: 24,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            }}>
+              ⚡ Built for Razorpay merchants
+            </div>
+
+            <h1 style={{
+              fontSize: 'clamp(32px, 5vw, 52px)',
+              fontWeight: 700,
+              color: '#FFFFFF',
+              lineHeight: 1.15,
+              marginBottom: 20,
+            }}>
+              Stop losing revenue to{' '}
+              <span style={{ color: '#F2B705' }}>failed payments</span>
+            </h1>
+
+            <p style={{
+              fontSize: 18,
+              color: 'rgba(255,255,255,0.65)',
+              lineHeight: 1.65,
+              marginBottom: 36,
+            }}>
+              An explainable rules + ML system that predicts retry success,
+              explains every decision, and recovers subscriptions automatically —
+              without spamming issuers.
+            </p>
+
+            {/* CTAs */}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <Link href="/playground" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '12px 28px',
+                background: '#3395FF',
+                color: '#fff',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 15,
+                textDecoration: 'none',
+                transition: 'background 200ms, transform 200ms',
+                boxShadow: '0 4px 20px rgba(51,149,255,0.35)',
+              }}
+              onMouseEnter={e => { e.target.style.background='#1a7fe0'; e.target.style.transform='translateY(-1px)'; }}
+              onMouseLeave={e => { e.target.style.background='#3395FF'; e.target.style.transform='translateY(0)'; }}
+              >
+                Try the demo →
+              </Link>
+
+              <Link href="/design-decisions" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '12px 28px',
+                background: 'rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.85)',
+                borderRadius: 8,
+                fontWeight: 500,
+                fontSize: 15,
+                textDecoration: 'none',
+                border: '1px solid rgba(255,255,255,0.15)',
+                transition: 'background 200ms',
+              }}
+              onMouseEnter={e => e.target.style.background='rgba(255,255,255,0.14)'}
+              onMouseLeave={e => e.target.style.background='rgba(255,255,255,0.08)'}
+              >
+                How it works
+              </Link>
+            </div>
+          </motion.div>
         </div>
 
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
-          <table className="feed-table">
-            <thead>
-              <tr>
-                <th>Transaction</th>
-                <th>Failure reason</th>
-                <th>Attempts</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '32px' }}>No transactions</td></tr>
-              )}
-              {transactions.map(txn => (
-                <tr key={txn.transaction_id} onClick={() => window.location.href = `/transactions`}>
-                  <td>
-                    <span className="text-mono">{txn.transaction_id.slice(0, 14)}…</span>
-                    <div className="text-secondary text-sm">{fmt.format(txn.amount)}</div>
-                  </td>
-                  <td><span className="badge badge--reason">{txn.failure_reason.replace(/_/g, ' ')}</span></td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{txn.attempt_count}/{txn.max_attempts}</td>
-                  <td><StatusBadge status={txn.status} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Scroll hint */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.4 }}
+          style={{
+            position: 'absolute', bottom: 32,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+            color: 'rgba(255,255,255,0.30)', fontSize: 12,
+          }}
+        >
+          <span>scroll</span>
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+            style={{ fontSize: 16 }}
+          >↓</motion.div>
+        </motion.div>
+      </section>
+
+      {/* ── Stat strip — hero.md §below-the-fold */}
+      <section style={{
+        background: '#fff',
+        borderBottom: '1px solid #E2E6EB',
+        padding: '32px 24px',
+      }}>
+        <div style={{
+          maxWidth: 800, margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, flexWrap: 'wrap', textAlign: 'center',
+        }}>
+          <span style={{ fontSize: 28, fontWeight: 700, color: '#3395FF' }}>20–40%</span>
+          <span style={{ fontSize: 16, color: '#5C6470', maxWidth: 480, lineHeight: 1.5 }}>
+            of subscription churn is payment-failure-driven, not customer choice —
+            most of it is silently recoverable with the right retry strategy.
+          </span>
         </div>
-      </div>
-    </>
+      </section>
+
+      {/* ── Feature callouts — hero.md §3 icon+text callouts */}
+      <section style={{
+        background: '#F5F7FA',
+        padding: '64px 24px',
+      }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <h2 style={{
+            textAlign: 'center', fontSize: 26, fontWeight: 600,
+            color: '#0A0A0A', marginBottom: 48,
+          }}>
+            What makes this different
+          </h2>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 24,
+          }}>
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12, duration: 0.4, ease: 'easeOut' }}
+                style={{
+                  background: '#fff',
+                  borderRadius: 12,
+                  padding: '28px 24px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)',
+                  display: 'flex', flexDirection: 'column', gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 32 }}>{f.icon}</span>
+                <h3 style={{ fontSize: 17, fontWeight: 600, color: '#0A0A0A' }}>{f.title}</h3>
+                <p style={{ fontSize: 14, color: '#5C6470', lineHeight: 1.6 }}>{f.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* CTA to dashboard */}
+          <div style={{ textAlign: 'center', marginTop: 48 }}>
+            <Link href="/dashboard" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '12px 32px',
+              background: '#0A0A0A',
+              color: '#fff',
+              borderRadius: 8,
+              fontWeight: 600,
+              fontSize: 15,
+              textDecoration: 'none',
+            }}>
+              View the dashboard →
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

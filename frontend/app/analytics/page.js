@@ -1,8 +1,25 @@
 'use client';
+// Analytics — analytics.md spec:
+// 1. Funnel chart (horizontal stepped bars)
+// 2. Recovery rate by attempt (bar chart) — proxy for "over time"
+// 3. Global feature importance (horizontal bar chart)
+// All from GET /api/analytics — same source as dashboard (analytics.md §Notes)
+
 import { useEffect, useState } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  Cell, LabelList,
+} from 'recharts';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 const fmtPct = (n) => `${(n * 100).toFixed(1)}%`;
+
+const COLORS = {
+  hard_failed:  '#0A0A0A',
+  retrying:     '#3395FF',
+  recovered:    '#F2B705',
+  churned:      '#8B90A0',
+};
 
 export default function AnalyticsPage() {
   const [data, setData] = useState(null);
@@ -21,24 +38,48 @@ export default function AnalyticsPage() {
 
   const { funnel, revenue, recovery_by_reason, recovery_by_attempt, global_feature_importance } = data;
 
+  // Funnel data — analytics.md §1: Failed → Retried → Recovered / Churned
+  const funnelData = [
+    { name: 'Total failed',    value: funnel.total_failed,  fill: '#E2E6EB' },
+    { name: 'Hard-failed',     value: funnel.hard_failed,   fill: COLORS.hard_failed },
+    { name: 'Retrying',        value: funnel.retrying,      fill: COLORS.retrying },
+    { name: 'Recovered',       value: funnel.recovered,     fill: COLORS.recovered },
+    { name: 'Churned',         value: funnel.churned,       fill: COLORS.churned },
+  ];
+
+  // Recovery by reason
+  const reasonData = Object.entries(recovery_by_reason || {})
+    .map(([reason, rate]) => ({ name: reason.replace(/_/g, ' '), rate: parseFloat((rate * 100).toFixed(1)) }))
+    .sort((a, b) => b.rate - a.rate);
+
+  // Recovery by attempt
+  const attemptData = (recovery_by_attempt || []).map(r => ({
+    name: `Attempt ${r.attempt_number}`,
+    rate: parseFloat((r.recovery_rate * 100).toFixed(1)),
+    n: r.n_attempts,
+  }));
+
+  // Feature importance
+  const fiData = (global_feature_importance || []).slice(0, 8).map(f => ({
+    name: f.feature.replace(/_/g, ' '),
+    importance: parseFloat((f.importance * 100).toFixed(2)),
+  }));
+
   return (
     <>
       <div className="section__header" style={{ marginBottom: 'var(--sp-6)' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Analytics</h1>
-        <span className="text-secondary text-sm">Model + recovery performance</span>
+        <span className="text-secondary text-sm">All data from the same source as the dashboard</span>
       </div>
 
-      {/* Funnel */}
+      {/* Revenue KPIs */}
       <div className="section">
-        <h3 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery funnel</h3>
         <div className="kpi-grid">
           {[
-            { label: 'Total failed', value: funnel.total_failed, color: '' },
-            { label: 'Hard-failed', value: funnel.hard_failed, color: 'kpi-card__value--black' },
-            { label: 'Recovered', value: funnel.recovered, color: 'kpi-card__value--gold' },
-            { label: 'Retrying / pending', value: funnel.retrying, color: 'kpi-card__value--blue' },
-            { label: 'Churned', value: funnel.churned, color: '' },
-            { label: 'Recovery rate', value: fmtPct(funnel.recovery_rate), color: 'kpi-card__value--accent' },
+            { label: 'Recovery rate',     value: fmtPct(funnel.recovery_rate),      color: 'kpi-card__value--blue' },
+            { label: 'Revenue recovered', value: fmt.format(revenue.recovered),      color: 'kpi-card__value--gold' },
+            { label: 'Revenue at risk',   value: fmt.format(revenue.at_risk),        color: 'kpi-card__value--accent' },
+            { label: 'Churned',           value: funnel.churned,                     color: '' },
           ].map(({ label, value, color }) => (
             <div key={label} className="kpi-card">
               <span className="kpi-card__label">{label}</span>
@@ -48,81 +89,78 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Revenue */}
+      {/* 1. Funnel chart — analytics.md §1 */}
       <div className="section">
-        <h3 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Revenue</h3>
-        <div className="kpi-grid">
-          <div className="kpi-card">
-            <span className="kpi-card__label">Revenue recovered</span>
-            <span className="kpi-card__value kpi-card__value--gold">{fmt.format(revenue.recovered)}</span>
+        <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery funnel</h2>
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={funnelData} layout="vertical" margin={{ left: 16, right: 40 }}>
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 13, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => [v, 'Count']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
+              <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={32}>
+                {funnelData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
+                <LabelList dataKey="value" position="right" style={{ fontSize: 13, fontWeight: 600 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--sp-6)' }}>
+        {/* 2. Recovery rate by failure reason */}
+        <div className="section">
+          <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery by failure reason</h2>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={reasonData} layout="vertical" margin={{ left: 16, right: 40 }}>
+                <XAxis type="number" unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v) => [`${v}%`, 'Recovery rate']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
+                <Bar dataKey="rate" fill="#3395FF" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                  <LabelList dataKey="rate" position="right" formatter={v => `${v}%`} style={{ fontSize: 12 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <div className="kpi-card">
-            <span className="kpi-card__label">Revenue at risk</span>
-            <span className="kpi-card__value kpi-card__value--blue">{fmt.format(revenue.at_risk)}</span>
+        </div>
+
+        {/* 2b. Recovery rate by attempt — analytics.md §2 proxy for "over time" */}
+        <div className="section">
+          <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery rate by attempt number</h2>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={attemptData} margin={{ left: 8, right: 24 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis unit="%" domain={[0, 55]} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v, n, p) => [`${v}% (n=${p.payload.n})`, 'Recovery rate']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
+                <Bar dataKey="rate" fill="#F2B705" radius={[6, 6, 0, 0]} maxBarSize={48}>
+                  <LabelList dataKey="rate" position="top" formatter={v => `${v}%`} style={{ fontSize: 12 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8, textAlign: 'center' }}>
+              Recovery rate declines monotonically with attempt number — a key sanity check from DATA_SCHEMA.md
+            </p>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-6)' }}>
-        {/* Recovery by failure reason */}
+      {/* 3. Global feature importance — analytics.md §3 */}
+      {fiData.length > 0 && (
         <div className="section">
-          <h3 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery rate by failure reason</h3>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-            {Object.entries(recovery_by_reason)
-              .sort(([, a], [, b]) => b - a)
-              .map(([reason, rate]) => (
-                <div key={reason}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{reason.replace(/_/g, ' ')}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{fmtPct(rate)}</span>
-                  </div>
-                  <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: fmtPct(rate), background: 'var(--accent)', borderRadius: '3px', transition: 'width 600ms ease' }} />
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        {/* Recovery by attempt number */}
-        <div className="section">
-          <h3 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Recovery rate by attempt</h3>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-            {(recovery_by_attempt || []).map(row => (
-              <div key={row.attempt_number}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Attempt {row.attempt_number}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>{fmtPct(row.recovery_rate)} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>({row.n_attempts} attempts)</span></span>
-                </div>
-                <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: fmtPct(row.recovery_rate), background: 'var(--color-retrying)', borderRadius: '3px', transition: 'width 600ms ease' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Global feature importance */}
-      {global_feature_importance?.length > 0 && (
-        <div className="section">
-          <h3 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Global feature importance (model)</h3>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-            {global_feature_importance.map(f => {
-              const maxImp = global_feature_importance[0]?.importance || 1;
-              const pct = ((f.importance / maxImp) * 100).toFixed(1);
-              return (
-                <div key={f.feature}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{f.feature.replace(/_/g, ' ')}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{(f.importance * 100).toFixed(2)}</span>
-                  </div>
-                  <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent)', borderRadius: '3px' }} />
-                  </div>
-                </div>
-              );
-            })}
+          <h2 className="section__title" style={{ marginBottom: 'var(--sp-4)' }}>Global feature importance (XGBoost)</h2>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-card)', padding: 'var(--sp-6)', boxShadow: 'var(--shadow-card)' }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={fiData} layout="vertical" margin={{ left: 24, right: 56 }}>
+                <XAxis type="number" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={180} tick={{ fontSize: 13, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v) => [v, 'Importance score']} contentStyle={{ fontSize: 13, borderRadius: 8 }} />
+                <Bar dataKey="importance" fill="#3395FF" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                  <LabelList dataKey="importance" position="right" style={{ fontSize: 12, fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}

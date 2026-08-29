@@ -55,14 +55,15 @@
   --transition-ui:   300ms ease;
 }
 
-/* Dark mode — UI_SPEC.md deep blue palette */
+/* Dark mode — professional charcoal (not blue) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:            #072654;
-    --surface:       #0E3A6B;
-    --border:        #1B4E85;
-    --text-primary:  #FFFFFF;
-    --text-secondary:#A9C4E8;
+    --bg:            #0F1117;
+    --surface:       #1A1D27;
+    --border:        #2A2D3A;
+    --text-primary:  #F0F2F5;
+    --text-secondary:#8B90A0;
+    --accent:        #4DA6FF;
   }
 }
 
