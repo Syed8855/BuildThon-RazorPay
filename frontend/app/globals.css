@@ -1,0 +1,566 @@
+/* globals.css — Design system per docs/UI_SPEC.md
+   Color tokens, typography, spacing, shared component styles.
+   No Tailwind — vanilla CSS only. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* -------------------------------------------------------------------------
+   CSS custom properties (design tokens)
+   UI_SPEC.md: Color system
+   ------------------------------------------------------------------------- */
+:root {
+  /* Status colors */
+  --color-failed:    #0A0A0A;
+  --color-retrying:  #3395FF;
+  --color-recovered: #F2B705;
+
+  /* Base palette — light mode */
+  --bg:            #FFFFFF;
+  --surface:       #F5F7FA;
+  --border:        #E2E6EB;
+  --text-primary:  #0A0A0A;
+  --text-secondary:#5C6470;
+  --accent:        #3395FF;
+
+  /* Typography — UI_SPEC.md */
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --fs-h1:   32px; --fw-h1: 600;
+  --fs-h2:   24px; --fw-h2: 600;
+  --fs-h3:   18px; --fw-h3: 500;
+  --fs-body: 15px; --fw-body: 400;
+  --fs-sm:   13px; --fw-sm: 400;
+  --lh-body: 1.5;
+  --lh-head: 1.2;
+
+  /* Spacing — multiples of 4px */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  /* Border radius */
+  --radius-card: 12px;
+  --radius-badge: 999px;
+  --radius-sm: 6px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  --shadow-drawer: -4px 0 32px rgba(0,0,0,0.10);
+
+  /* Transitions */
+  --transition-fast: 200ms ease;
+  --transition-ui:   300ms ease;
+}
+
+/* Dark mode — UI_SPEC.md deep blue palette */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:            #072654;
+    --surface:       #0E3A6B;
+    --border:        #1B4E85;
+    --text-primary:  #FFFFFF;
+    --text-secondary:#A9C4E8;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Reset + Base
+   ------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-body);
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 { font-size: var(--fs-h1); font-weight: var(--fw-h1); line-height: var(--lh-head); }
+h2 { font-size: var(--fs-h2); font-weight: var(--fw-h2); line-height: var(--lh-head); }
+h3 { font-size: var(--fs-h3); font-weight: var(--fw-h3); line-height: var(--lh-head); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* -------------------------------------------------------------------------
+   Layout
+   ------------------------------------------------------------------------- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--sp-8) var(--sp-8);
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* -------------------------------------------------------------------------
+   Navigation — top nav, persistent per UI_SPEC.md
+   ------------------------------------------------------------------------- */
+.topnav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--sp-8);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  height: 56px;
+}
+
+.topnav__brand {
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.topnav__brand span { color: var(--accent); }
+
+.topnav__links {
+  display: flex;
+  gap: var(--sp-1);
+  list-style: none;
+}
+
+.topnav__links a {
+  display: block;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.topnav__links a:hover,
+.topnav__links a.active {
+  color: var(--accent);
+  background: rgba(51,149,255,0.08);
+  text-decoration: none;
+}
+
+/* -------------------------------------------------------------------------
+   Shared component: Status badge — UI_SPEC.md
+   Pill, border-radius 999px, tinted bg, full-strength text
+   ------------------------------------------------------------------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-badge);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition-ui), color var(--transition-ui);
+}
+
+.badge--failed    { background: rgba(10,10,10,0.10);   color: var(--color-failed); }
+.badge--retrying  { background: rgba(51,149,255,0.12); color: var(--color-retrying); }
+.badge--recovered { background: rgba(242,183,5,0.12);  color: #B28A00; }
+.badge--churned   { background: rgba(92,100,112,0.12); color: var(--text-secondary); }
+.badge--pending   { background: rgba(51,149,255,0.08); color: var(--color-retrying); }
+
+/* failure reason badge — neutral, not a status color */
+.badge--reason {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------------------
+   Shared component: KPI card — UI_SPEC.md
+   ------------------------------------------------------------------------- */
+.kpi-card {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: var(--sp-4) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-fast);
+}
+
+.kpi-card:hover { transform: translateY(-2px); }
+
+.kpi-card__label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.kpi-card__value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.kpi-card__value--blue   { color: var(--color-retrying); }
+.kpi-card__value--gold   { color: var(--color-recovered); }
+.kpi-card__value--black  { color: var(--text-primary); }
+.kpi-card__value--accent { color: var(--accent); }
+
+.kpi-card__sub {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* KPI grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-3);
+}
+
+/* -------------------------------------------------------------------------
+   Shared component: SHAP contribution bar — UI_SPEC.md
+   ------------------------------------------------------------------------- */
+.shap-bars { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.shap-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 60px;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.shap-row__name {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shap-row__bar-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.shap-row__bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width var(--transition-ui);
+}
+
+.shap-row__bar-fill--pos { background: var(--color-retrying); }
+.shap-row__bar-fill--neg { background: var(--color-failed); opacity: 0.45; }
+
+.shap-row__value {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: right;
+}
+
+.shap-row__value--pos { color: var(--color-retrying); }
+.shap-row__value--neg { color: var(--text-secondary); }
+
+/* -------------------------------------------------------------------------
+   Shared component: Orchestrator decision line — UI_SPEC.md
+   Single-line callout, icon + text, tinted background
+   ------------------------------------------------------------------------- */
+.orch-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.orch-line--retry    { background: rgba(51,149,255,0.08);  color: var(--color-retrying); }
+.orch-line--wait     { background: rgba(51,149,255,0.06);  color: var(--color-retrying); }
+.orch-line--skip     { background: rgba(92,100,112,0.08);  color: var(--text-secondary); }
+.orch-line--no-retry { background: rgba(10,10,10,0.06);    color: var(--color-failed); }
+.orch-line--hard-fail{ background: rgba(10,10,10,0.06);    color: var(--color-failed); }
+.orch-line--churned  { background: rgba(92,100,112,0.08);  color: var(--text-secondary); }
+
+.orch-line__icon { flex-shrink: 0; font-size: 16px; line-height: 1; }
+.orch-line__text { flex: 1; }
+
+/* -------------------------------------------------------------------------
+   Table styles — transaction feed
+   ------------------------------------------------------------------------- */
+.feed-table { width: 100%; border-collapse: collapse; }
+
+.feed-table th {
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.feed-table td {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  vertical-align: middle;
+}
+
+.feed-table tr { cursor: pointer; transition: background var(--transition-fast); }
+.feed-table tr:hover td { background: rgba(51,149,255,0.04); }
+.feed-table tr.active td { background: rgba(51,149,255,0.08); }
+
+/* Probability bar in table */
+.prob-bar { display: flex; align-items: center; gap: var(--sp-2); }
+.prob-bar__track {
+  width: 60px; height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.prob-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width var(--transition-ui);
+}
+
+/* -------------------------------------------------------------------------
+   Detail drawer — side panel
+   ------------------------------------------------------------------------- */
+.drawer-overlay {
+  position: fixed; inset: 0;
+  background: rgba(7,38,84,0.35);
+  z-index: 200;
+  animation: fadeIn 200ms ease;
+}
+
+.drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(520px, 92vw);
+  background: var(--bg);
+  box-shadow: var(--shadow-drawer);
+  z-index: 201;
+  overflow-y: auto;
+  animation: slideIn 300ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+.drawer__header {
+  position: sticky; top: 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: var(--sp-4) var(--sp-6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  z-index: 1;
+}
+
+.drawer__close {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border: none; background: var(--surface);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.drawer__close:hover { background: var(--border); color: var(--text-primary); }
+
+.drawer__body { padding: var(--sp-6); flex: 1; display: flex; flex-direction: column; gap: var(--sp-6); }
+
+.drawer__section-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--sp-3);
+}
+
+/* Attempt timeline */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-4);
+  position: relative;
+}
+
+.timeline-item:not(:last-child) .timeline-item__dot::after {
+  content: '';
+  position: absolute;
+  top: 24px; left: 11px;
+  width: 2px;
+  bottom: 0;
+  background: var(--border);
+}
+
+.timeline-item__dot {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-item__dot--success  { background: rgba(242,183,5,0.18);  color: #B28A00; }
+.timeline-item__dot--fail     { background: rgba(10,10,10,0.08);   color: var(--text-secondary); }
+.timeline-item__dot--pending  { background: rgba(51,149,255,0.12); color: var(--color-retrying); }
+
+.timeline-item__content { padding-top: 2px; }
+.timeline-item__label { font-size: var(--fs-sm); font-weight: 500; }
+.timeline-item__meta  { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+/* -------------------------------------------------------------------------
+   Probability display
+   ------------------------------------------------------------------------- */
+.prob-display {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.prob-display__value {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.prob-display__label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* -------------------------------------------------------------------------
+   Filter bar — pill filters
+   ------------------------------------------------------------------------- */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.filter-pill {
+  padding: 5px 14px;
+  border-radius: var(--radius-badge);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+.filter-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.search-input {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  width: 200px;
+}
+.search-input:focus { border-color: var(--accent); }
+
+/* -------------------------------------------------------------------------
+   Section spacing
+   ------------------------------------------------------------------------- */
+.section { margin-bottom: var(--sp-8); }
+.section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-4);
+}
+
+.section__title { font-size: var(--fs-h3); font-weight: 600; }
+.section__action { font-size: var(--fs-sm); color: var(--accent); cursor: pointer; }
+.section__action:hover { text-decoration: underline; }
+
+/* -------------------------------------------------------------------------
+   Utility
+   ------------------------------------------------------------------------- */
+.text-secondary { color: var(--text-secondary); }
+.text-sm        { font-size: var(--fs-sm); }
+.text-mono      { font-family: 'Courier New', monospace; font-size: 12px; }
+.mt-2 { margin-top: var(--sp-2); }
+.mt-4 { margin-top: var(--sp-4); }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.gap-2 { gap: var(--sp-2); }
+.gap-3 { gap: var(--sp-3); }
+.gap-4 { gap: var(--sp-4); }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+
+/* -------------------------------------------------------------------------
+   Loading / error states
+   ------------------------------------------------------------------------- */
+.loading-state {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 200px;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  gap: var(--sp-2);
+}
+
+.error-state {
+  background: rgba(10,10,10,0.06);
+  border: 1px solid rgba(10,10,10,0.12);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--color-failed);
+}
+
+/* -------------------------------------------------------------------------
+   Responsive — tablet breakpoint (768px) per UI_SPEC.md
+   ------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .main-content { padding: var(--sp-4); }
+  .topnav { padding: 0 var(--sp-4); gap: var(--sp-4); }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .shap-row { grid-template-columns: 120px 1fr 50px; }
+  .drawer { width: 100vw; }
+}
