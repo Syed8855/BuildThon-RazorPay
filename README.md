@@ -18,9 +18,12 @@ every decision it makes.
 - **Explainable by default.** XGBoost, not a neural net — the problem is tabular
   and doesn't need deep learning. Every prediction ships with a SHAP breakdown.
   See `docs/MODEL_SPEC.md`.
-- **Synthetic data, not a mismatched public dataset.** No public dataset has
-  retry-sequence/dunning data. Synthetic data lets us control the schema to match
-  the actual problem, seeded with real decline-code taxonomies for realism.
+- **Hybrid data, not a mismatched public dataset.** No public dataset has
+  retry-sequence/dunning data, so the core dataset — the retry/dunning event
+  log — is synthetic, with full control over its schema to match the actual
+  problem. Transaction-level realism (amount distributions, decline-code
+  taxonomy) is enriched using patterns borrowed from real payments/fraud
+  datasets, so the numbers aren't pulled from thin air.
   See `docs/DATA_SCHEMA.md`.
 
 Full reasoning behind every major decision — including what we rejected and why —
