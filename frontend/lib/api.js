@@ -5,19 +5,31 @@ const BASE = process.env.FASTAPI_BASE_URL || 'http://localhost:8000';
 
 export async function apiFetch(path, options = {}) {
   const url = `${BASE}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-    // Keep-alive for Render free tier cold-start mitigation
-    next: { revalidate: 0 },
-  });
+  
+  // Abort after 20s if cold-starting so request fails fast and UI shows Vaulta/loading screen
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw { status: res.status, body: data };
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      next: { revalidate: 0 },
+    });
+
+    clearTimeout(timeout);
+    const data = await res.json();
+    if (!res.ok) {
+      throw { status: res.status, body: data };
+    }
+    return data;
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.status) throw err;
+    throw { status: 504, body: { error: 'Backend cold-starting or unreachable', details: err.message } };
   }
-  return data;
 }

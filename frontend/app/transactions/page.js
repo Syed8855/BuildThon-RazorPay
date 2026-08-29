@@ -7,7 +7,7 @@ import OrchestratorLine from '@/components/OrchestratorLine'
 import ShapBars from '@/components/ShapBars'
 import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import { useBackend } from '@/context/BackendContext'
-import { X, Search } from 'lucide-react'
+import { X, Search, Play, RotateCcw, CheckCircle2, AlertCircle, Sparkles, ArrowRight } from 'lucide-react'
 
 const fmtINR = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n ?? 0)
 const ease = [0.22, 1, 0.36, 1]
@@ -23,7 +23,157 @@ const REASON_FILTERS = [
   'card_stolen',
 ]
 
-function DetailDrawer({ txn, onClose }) {
+/* ── Replay Recovery Modal ───────────────────────────────────── */
+function ReplayModal({ txn, onClose }) {
+  const [replayStage, setReplayStage] = useState('INITIATED') // INITIATED | FAILED | ANALYZING | RETRYING | RECOVERED
+
+  useEffect(() => {
+    if (!txn) return
+    setReplayStage('INITIATED')
+
+    const t1 = setTimeout(() => setReplayStage('FAILED'), 1100)
+    const t2 = setTimeout(() => setReplayStage('ANALYZING'), 2300)
+    const t3 = setTimeout(() => setReplayStage('RETRYING'), 3600)
+    const t4 = setTimeout(() => setReplayStage('RECOVERED'), 5000)
+
+    return () => {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4)
+    }
+  }, [txn])
+
+  if (!txn) return null
+
+  const steps = [
+    { id: 'INITIATED', label: 'Payment Initiated', sub: fmtINR(txn.amount) },
+    { id: 'FAILED', label: 'Payment Failed', sub: txn.failure_reason?.replace(/_/g, ' ') },
+    { id: 'ANALYZING', label: 'Recovery Engine', sub: 'Evaluating rules & ML model' },
+    { id: 'RETRYING', label: 'Smart Retry', sub: `Attempt ${txn.attempt_count} scheduled` },
+    { id: 'RECOVERED', label: 'Payment Recovered', sub: `+${fmtINR(txn.amount)} ARR Saved` },
+  ]
+
+  return (
+    <AnimatePresence>
+      <div className="drawer-overlay" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.94 }}
+        transition={{ duration: 0.3, ease }}
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(580px, 92vw)',
+          background: 'var(--surface)',
+          border: '1px solid rgba(82, 132, 255, 0.3)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-drawer), var(--shadow-glow)',
+          zIndex: 400,
+          padding: '28px',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <div className="eyebrow"><span className="eyebrow__dot" /> RECOVERY REPLAY</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{txn.transaction_id}</div>
+          </div>
+          <button className="btn btn-icon" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Animated Journey Timeline */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, margin: '24px 0' }}>
+          {steps.map((step, idx) => {
+            const isPast = steps.findIndex((s) => s.id === replayStage) >= idx
+            const isCurrent = replayStage === step.id
+            return (
+              <div
+                key={step.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  background: isCurrent
+                    ? 'rgba(82, 132, 255, 0.12)'
+                    : isPast
+                    ? 'rgba(255, 255, 255, 0.04)'
+                    : 'transparent',
+                  border: `1px solid ${
+                    isCurrent
+                      ? 'rgba(82, 132, 255, 0.35)'
+                      : isPast
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'transparent'
+                  }`,
+                  transition: 'all 300ms ease',
+                }}
+              >
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isCurrent
+                      ? 'var(--accent-cta)'
+                      : isPast
+                      ? 'rgba(82, 132, 255, 0.2)'
+                      : 'rgba(255, 255, 255, 0.06)',
+                    color: isPast || isCurrent ? '#FFFFFF' : 'var(--text-muted)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {isPast ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: isPast ? '#FFFFFF' : 'var(--text-muted)' }}>
+                    {step.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{step.sub}</div>
+                </div>
+                {isCurrent && (
+                  <span className="badge badge--retrying" style={{ fontSize: 10 }}>
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            Status: <strong style={{ color: 'var(--text-primary)' }}>{replayStage}</strong>
+          </span>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setReplayStage('INITIATED')
+              setTimeout(() => setReplayStage('FAILED'), 1100)
+              setTimeout(() => setReplayStage('ANALYZING'), 2300)
+              setTimeout(() => setReplayStage('RETRYING'), 3600)
+              setTimeout(() => setReplayStage('RECOVERED'), 5000)
+            }}
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Replay Again
+          </button>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+/* ── Transaction Audit Detail Drawer ─────────────────────────── */
+function DetailDrawer({ txn, onClose, onReplay }) {
   if (!txn) return null
   const prob = txn.ml_result?.success_probability ?? null
   const probCls = prob === null ? '' : prob > 0.5 ? 'prob-val--high' : prob > 0.25 ? 'prob-val--mid' : 'prob-val--low'
@@ -60,9 +210,18 @@ function DetailDrawer({ txn, onClose }) {
               <span className="text-muted text-xs">{fmtINR(txn.amount)}</span>
             </div>
           </div>
-          <button className="btn btn-icon" onClick={onClose} style={{ flexShrink: 0 }}>
-            <X className="w-4 h-4" />
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => onReplay(txn)}
+              style={{ height: 36, padding: '0 14px', fontSize: 12, gap: 6 }}
+            >
+              Replay <Play className="w-3.5 h-3.5 fill-current" />
+            </button>
+            <button className="btn btn-icon" onClick={onClose} style={{ flexShrink: 0 }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="drawer__body">
@@ -170,12 +329,16 @@ function DetailDrawer({ txn, onClose }) {
   )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Main Transactions Feed Page
+   ───────────────────────────────────────────────────────────── */
 export default function TransactionsPage() {
   const { isReady: backendIsReady } = useBackend()
   const [txns, setTxns] = useState([])
   const [dataLoaded, setDataLoaded] = useState(false)
   const [showVaulta, setShowVaulta] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [replayTxn, setReplayTxn] = useState(null)
   const [statusF, setStatusF] = useState('all')
   const [reasonF, setReasonF] = useState('all')
   const [search, setSearch] = useState('')
@@ -223,7 +386,7 @@ export default function TransactionsPage() {
           </div>
           <h1>Transaction Feed</h1>
           {dataLoaded && (
-            <p className="page-hdr__sub">{txns.length} payment recoveries analyzed · click any entry for full AI diagnostics</p>
+            <p className="page-hdr__sub">{txns.length} payment recoveries analyzed · click any entry for full AI diagnostics or click Replay</p>
           )}
         </div>
 
@@ -264,79 +427,107 @@ export default function TransactionsPage() {
               ))}
             </div>
 
-            {/* Transaction Data Table */}
+            {/* Premium Card-Row Transaction List */}
             <div className="section">
               <div className="section-hdr">
                 <span className="section-title">{filtered.length} matched transactions</span>
               </div>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Transaction</th>
-                      <th>Failure Reason</th>
-                      <th>Method</th>
-                      <th>ML Probability</th>
-                      <th>Attempts</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={6}>
-                          <div className="state-empty">No transactions matching filter criteria</div>
-                        </td>
-                      </tr>
-                    )}
-                    {filtered.map((txn) => {
-                      const prob = txn.ml_result?.success_probability
-                      return (
-                        <tr
-                          key={txn.transaction_id}
-                          className={selected?.transaction_id === txn.transaction_id ? 'row-active' : ''}
-                          onClick={() => setSelected(txn)}
-                        >
-                          <td>
-                            <div className="text-mono">{txn.transaction_id.slice(0, 18)}…</div>
-                            <div className="text-muted text-xs" style={{ marginTop: 2 }}>
-                              {fmtINR(txn.amount)}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filtered.length === 0 && (
+                  <div className="card card--padded state-empty">No transactions matching filter criteria</div>
+                )}
+                {filtered.map((txn) => {
+                  const prob = txn.ml_result?.success_probability
+                  const isSel = selected?.transaction_id === txn.transaction_id
+                  return (
+                    <motion.div
+                      key={txn.transaction_id}
+                      onClick={() => setSelected(txn)}
+                      whileHover={{ scale: 1.006, y: -2 }}
+                      transition={{ duration: 0.15, ease }}
+                      className={`card ${isSel ? 'card--glow' : ''}`}
+                      style={{
+                        padding: '16px 20px',
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(180px, 1.4fr) 1.2fr 1fr 1fr 1fr auto',
+                        alignItems: 'center',
+                        gap: 16,
+                        cursor: 'pointer',
+                        borderColor: isSel ? 'var(--accent)' : 'var(--border)',
+                        background: isSel ? 'rgba(82, 132, 255, 0.06)' : 'var(--surface)',
+                      }}
+                    >
+                      {/* ID & Amount */}
+                      <div>
+                        <div className="text-mono" style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+                          {txn.transaction_id}
+                        </div>
+                        <div className="text-muted text-xs" style={{ marginTop: 2 }}>
+                          {fmtINR(txn.amount)} · {txn.merchant_category?.replace(/_/g, ' ')}
+                        </div>
+                      </div>
+
+                      {/* Failure Reason */}
+                      <div>
+                        <span className="badge badge--reason">{txn.failure_reason.replace(/_/g, ' ')}</span>
+                      </div>
+
+                      {/* Method */}
+                      <div className="text-muted text-sm" style={{ textTransform: 'capitalize' }}>
+                        {txn.payment_method}
+                      </div>
+
+                      {/* Probability */}
+                      <div>
+                        {prob != null ? (
+                          <div className="prob-bar">
+                            <div className="prob-bar__track">
+                              <div className="prob-bar__fill" style={{ width: `${prob * 100}%` }} />
                             </div>
-                          </td>
-                          <td>
-                            <span className="badge badge--reason">{txn.failure_reason.replace(/_/g, ' ')}</span>
-                          </td>
-                          <td className="text-muted text-sm">{txn.payment_method}</td>
-                          <td>
-                            {prob != null ? (
-                              <div className="prob-bar">
-                                <div className="prob-bar__track">
-                                  <div className="prob-bar__fill" style={{ width: `${prob * 100}%` }} />
-                                </div>
-                                <span className="text-xs text-muted">{(prob * 100).toFixed(0)}%</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted text-xs">—</span>
-                            )}
-                          </td>
-                          <td className="text-muted text-sm">
-                            {txn.attempt_count} / {txn.max_attempts}
-                          </td>
-                          <td>
-                            <StatusBadge status={txn.status} />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                            <span className="text-xs text-muted">{(prob * 100).toFixed(0)}%</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted text-xs">—</span>
+                        )}
+                      </div>
+
+                      {/* Status */}
+                      <div>
+                        <StatusBadge status={txn.status} />
+                      </div>
+
+                      {/* Replay CTA */}
+                      <button
+                        className="btn btn-secondary"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setReplayTxn(txn)
+                        }}
+                        style={{ height: 34, padding: '0 12px', fontSize: 12, gap: 4 }}
+                      >
+                        Replay <Play className="w-3 h-3 fill-current" />
+                      </button>
+                    </motion.div>
+                  )
+                })}
               </div>
             </div>
           </motion.div>
         )}
       </div>
 
-      {selected && <DetailDrawer txn={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <DetailDrawer
+          txn={selected}
+          onClose={() => setSelected(null)}
+          onReplay={(t) => setReplayTxn(t)}
+        />
+      )}
+
+      {replayTxn && (
+        <ReplayModal txn={replayTxn} onClose={() => setReplayTxn(null)} />
+      )}
     </div>
   )
 }

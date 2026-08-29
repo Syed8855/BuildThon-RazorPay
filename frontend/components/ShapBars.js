@@ -21,13 +21,13 @@ export default function ShapBars({ contributions = [] }) {
             <span className="shap-row__name" title={c.feature}>
               {c.feature.replace(/_/g, ' ')}
             </span>
-            <div className="shap-row__bar-track">
+            <div className="shap-row__track">
               <div
-                className={`shap-row__bar-fill ${isPos ? 'shap-row__bar-fill--pos' : 'shap-row__bar-fill--neg'}`}
+                className={isPos ? 'shap-row__fill--pos' : 'shap-row__fill--neg'}
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span className={`shap-row__value ${isPos ? 'shap-row__value--pos' : 'shap-row__value--neg'}`}>
+            <span className={`shap-row__val ${isPos ? 'shap-row__val--pos' : 'shap-row__val--neg'}`}>
               {label}
             </span>
           </div>

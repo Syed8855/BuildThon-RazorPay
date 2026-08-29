@@ -3,10 +3,34 @@
 ## Approach
 
 Hybrid data. The core dataset — the retry/dunning event log — is fully
-synthetic, with full control over its schema so it actually matches the
-problem (no public dataset has retry-sequence data). Transaction-level realism
-is enriched using patterns/distributions borrowed from real payments/fraud
-datasets and published decline-code taxonomies, so numbers aren't arbitrary.
+synthetic; no public dataset has retry-sequence/dunning data, so this part
+must be generated from scratch to match the problem shape.
+
+Transaction-level realism is enriched using a real reference dataset:
+**Kaggle "Online Payments Fraud Detection Dataset"**
+(https://www.kaggle.com/datasets/rupakroy/online-payments-fraud-detection-dataset).
+
+What is pulled from the Kaggle dataset:
+- `amount` distribution shape — sample/fit a distribution (e.g. log-normal)
+  from the real `amount` column instead of inventing an arbitrary range, so
+  transaction amounts look statistically realistic.
+- Transaction `type` proportions (e.g. CASH_OUT, PAYMENT, TRANSFER) — used
+  loosely to inform realistic `payment_method` proportions, not mapped 1:1
+  (the Kaggle schema doesn't have card/UPI/netbanking directly, so this is a
+  realism reference, not a direct field copy).
+
+What is NOT pulled from Kaggle (fully synthetic, generated per the rules
+below):
+- `failure_reason` — Kaggle's dataset has no decline-code field; this uses
+  the real Razorpay/card-network decline-code taxonomy listed below instead.
+- Retry Attempt entity entirely (attempt_number, timestamps, outcomes,
+  channel) — this is the core problem-specific data with no public
+  equivalent, fully synthetic per the generation logic below.
+- Customer entity (segment, historical_failure_rate) — fully synthetic.
+
+In short: Kaggle data informs *statistical realism of amounts/volume*, not
+the actual retry/dunning logic, which is the project's real contribution and
+must stay fully controlled/synthetic.
 
 ## Entities
 
@@ -16,7 +40,7 @@ datasets and published decline-code taxonomies, so numbers aren't arbitrary.
 |---|---|---|
 | `transaction_id` | string | unique |
 | `customer_id` | string | FK to Customer |
-| `amount` | float | |
+| `amount` | float | sampled from Kaggle-fitted distribution, see Approach above |
 | `currency` | string | e.g. INR |
 | `failure_reason` | enum | see taxonomy below |
 | `is_hard_fail` | bool | derived: true for card_expired, card_stolen, account_closed |
@@ -66,6 +90,21 @@ Based on real Razorpay/Stripe/card-network published decline codes:
 - `card_stolen` — hard fail, never retry
 - `account_closed` — hard fail, never retry
 
+## Combination mechanism
+
+1. Load the Kaggle dataset, extract the `amount` column.
+2. Fit a distribution to it (e.g. log-normal via scipy.stats.lognorm.fit).
+3. When generating each synthetic Transaction, sample `amount` from this
+   fitted distribution instead of a hand-picked range.
+4. All other fields (failure_reason, retry attempts, customer segment,
+   outcomes) are generated independently using the rules below — Kaggle
+   data is not used for anything beyond the amount distribution (and
+   optionally transaction-type proportions, as noted above).
+5. Document this clearly in code comments and in the write-up: "amount
+   distributions are calibrated against a real payments dataset; retry/
+   dunning behavior is fully synthetic, as no public dataset for this
+   exists."
+
 ## Generation logic
 
 Every attempt's success probability is a function of named, justifiable
@@ -110,6 +149,8 @@ Before training on this data, sanity-check the generated distributions:
   than for `issuer_declined`/`do_not_honor`
 - recovery rate should decline with `attempt_number`
 - `insufficient_funds` recovery rate should visibly bump near payday
+- `amount` distribution should visibly resemble the Kaggle reference
+  distribution's shape (e.g. compare histograms or summary statistics)
 
 If these don't hold in the generated data, fix the generator before moving to
 model training — see `docs/MODEL_SPEC.md` for how this data is later used to

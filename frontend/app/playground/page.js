@@ -1,12 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
 import OrchestratorLine from '@/components/OrchestratorLine'
 import ShapBars from '@/components/ShapBars'
 import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import { useBackend } from '@/context/BackendContext'
-import { Sliders, Sparkles, Play, CheckCircle2 } from 'lucide-react'
+import { Sliders, Sparkles, Play, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+
+const AlinmaHeroScene = dynamic(() => import('@/components/hero/AlinmaHeroScene'), {
+  ssr: false,
+  loading: () => null,
+})
 
 const ease = [0.22, 1, 0.36, 1]
 
@@ -80,7 +86,7 @@ function AttemptPicker({ value, onChange }) {
   )
 }
 
-function ResultPanel({ result }) {
+function ResultPanel({ result, stageStep }) {
   if (!result) return null
   const prob = result.model_output?.success_probability ?? null
   const probCls = prob === null ? '' : prob > 0.5 ? 'prob-val--high' : prob > 0.25 ? 'prob-val--mid' : 'prob-val--low'
@@ -93,7 +99,7 @@ function ResultPanel({ result }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease }}
     >
-      {/* 1. Orchestrator Decision — first per spec */}
+      {/* 1. Orchestrator Decision */}
       <div className="card card--padded">
         <div
           style={{
@@ -216,6 +222,8 @@ export default function PlaygroundPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showVaulta, setShowVaulta] = useState(true)
+  const [simStage, setSimStage] = useState('IDLE') // IDLE | INITIATING | FAILED | ANALYZING | RETRYING | RECOVERED
+  const [stageMessage, setStageMessage] = useState('')
 
   // Warmup check on mount
   useEffect(() => {
@@ -254,6 +262,22 @@ export default function PlaygroundPage() {
     if (!validate()) return
     setLoading(true)
     setError(null)
+    setResult(null)
+
+    // Sequence the live simulation stages alongside API call
+    setSimStage('INITIATING')
+    setStageMessage(`PAYMENT INITIATED · ${fmtINR(form.amount)}`)
+
+    setTimeout(() => {
+      setSimStage('FAILED')
+      setStageMessage('PAYMENT FAILED')
+    }, 1000)
+
+    setTimeout(() => {
+      setSimStage('ANALYZING')
+      setStageMessage('RECOVERY ENGINE ANALYZING…')
+    }, 2200)
+
     try {
       const d = await fetch('/api/simulate', {
         method: 'POST',
@@ -263,10 +287,22 @@ export default function PlaygroundPage() {
         if (!r.ok) throw r
         return r.json()
       })
-      setResult(d)
+
+      setTimeout(() => {
+        setSimStage('RETRYING')
+        setStageMessage('SMART RETRY · Optimal window detected')
+      }, 3400)
+
+      setTimeout(() => {
+        setSimStage('RECOVERED')
+        setStageMessage(`✓ PAYMENT RECOVERED · +${fmtINR(form.amount)}`)
+        setResult(d)
+        setLoading(false)
+      }, 4800)
+
     } catch {
       setError('Simulation failed — engine is currently initializing, please retry.')
-    } finally {
+      setSimStage('IDLE')
       setLoading(false)
     }
   }
@@ -286,14 +322,84 @@ export default function PlaygroundPage() {
       <div className="container">
         <div className="page-hdr">
           <div className="eyebrow">
-            <span className="eyebrow__dot" /> RECOVERY SIMULATION
+            <span className="eyebrow__dot" /> PLAYGROUND
           </div>
-          <h1>Revenue Recovery Playground</h1>
+          <h1>See recovery happen</h1>
           <p className="page-hdr__sub">
-            Simulate any payment failure through the full rules + ML orchestrator pipeline with real-time explainability
+            Interactive continuation of the Hero — control the engine and watch 3D transaction recovery execute in real-time
           </p>
         </div>
 
+        {/* ── Interactive 3D Card Header Showcase ──────────────── */}
+        <div
+          className="card"
+          style={{
+            position: 'relative',
+            height: 280,
+            overflow: 'hidden',
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'linear-gradient(180deg, rgba(11, 16, 28, 0.9) 0%, rgba(5, 7, 13, 0.95) 100%)',
+          }}
+        >
+          {/* Background Ambient Glow */}
+          <div
+            style={{
+              position: 'absolute',
+              width: 500,
+              height: 220,
+              borderRadius: '50%',
+              background:
+                simStage === 'FAILED'
+                  ? 'radial-gradient(ellipse, rgba(155, 71, 71, 0.22) 0%, transparent 70%)'
+                  : simStage === 'RECOVERED'
+                  ? 'radial-gradient(ellipse, rgba(242, 183, 5, 0.25) 0%, transparent 70%)'
+                  : 'radial-gradient(ellipse, rgba(49, 92, 255, 0.22) 0%, transparent 70%)',
+              transition: 'background 800ms ease',
+              pointerEvents: 'none',
+            }}
+          />
+
+          <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <AlinmaHeroScene simStage={simStage} />
+          </div>
+
+          {/* Overlay Live State Indicator */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 20,
+              background: 'rgba(5, 7, 13, 0.85)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '8px 20px',
+              fontSize: 13,
+              fontWeight: 600,
+              color: simStage === 'FAILED' ? '#C97070' : simStage === 'RECOVERED' ? '#F2B705' : 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: 'var(--shadow-card)',
+              zIndex: 10,
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: simStage === 'FAILED' ? '#C97070' : simStage === 'RECOVERED' ? '#F2B705' : 'var(--accent)',
+                boxShadow: `0 0 10px ${simStage === 'FAILED' ? '#C97070' : simStage === 'RECOVERED' ? '#F2B705' : 'var(--accent)'}`,
+              }}
+            />
+            {simStage === 'IDLE' ? 'ENGINE READY · Configure parameters below to simulate' : stageMessage}
+          </div>
+        </div>
+
+        {/* Form & Diagnostics Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 390px) 1fr', gap: 24, alignItems: 'start' }}>
           {/* Input Configuration Panel */}
           <div className="card card--padded" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -410,7 +516,7 @@ export default function PlaygroundPage() {
               disabled={loading}
               style={{ width: '100%', marginTop: 6 }}
             >
-              {loading ? 'Evaluating AI Orchestration…' : 'Run Simulation →'}
+              {loading ? 'Executing AI Orchestration…' : 'Run Simulation →'}
             </button>
 
             {error && <div className="state-error">{error}</div>}
@@ -438,7 +544,7 @@ export default function PlaygroundPage() {
                 >
                   <div style={{ fontSize: 36, opacity: 0.35 }}>⚡</div>
                   <div className="text-secondary" style={{ fontSize: 14, maxWidth: 360, lineHeight: 1.6 }}>
-                    Select payment failure parameters on the left and click <strong>"Run Simulation"</strong> to inspect the autonomous recovery orchestrator.
+                    Select payment failure parameters on the left and click <strong>"Run Simulation"</strong> to watch the 3D card and engine respond in real-time.
                   </div>
                 </motion.div>
               )}
@@ -451,13 +557,13 @@ export default function PlaygroundPage() {
                   exit={{ opacity: 0 }}
                 >
                   <div style={{ fontSize: 28 }}>⚙️</div>
-                  <div className="state-loading__title">Evaluating Rules & XGBoost Model…</div>
+                  <div className="state-loading__title">{stageMessage || 'Evaluating Rules & XGBoost Model…'}</div>
                   <div className="state-loading__bar" />
                 </motion.div>
               )}
               {result && !loading && (
                 <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <ResultPanel result={result} />
+                  <ResultPanel result={result} stageStep={simStage} />
                 </motion.div>
               )}
             </AnimatePresence>

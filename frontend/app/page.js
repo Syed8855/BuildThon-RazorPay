@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, ChevronDown } from 'lucide-react'
+import { ArrowRight, ChevronDown, Sparkles } from 'lucide-react'
+import FloatingRevenueTest from '@/components/hero/FloatingRevenueTest'
 
 const AlinmaHeroScene = dynamic(() => import('@/components/hero/AlinmaHeroScene'), {
   ssr: false,
@@ -14,6 +16,7 @@ const ease = [0.22, 1, 0.36, 1]
 
 export default function HeroPage() {
   const prefersReduced = useReducedMotion()
+  const [simStage, setSimStage] = useState('IDLE')
 
   return (
     <div style={{ fontFamily: 'var(--font)', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative' }}>
@@ -37,18 +40,24 @@ export default function HeroPage() {
         <div
           style={{
             position: 'absolute',
-            width: 'min(700px, 90vw)',
-            height: 480,
+            width: 'min(760px, 90vw)',
+            height: 500,
             borderRadius: '50%',
-            background: 'radial-gradient(ellipse, rgba(49, 92, 255, 0.14) 0%, transparent 70%)',
+            background:
+              simStage === 'FAILED'
+                ? 'radial-gradient(ellipse, rgba(155, 71, 71, 0.18) 0%, transparent 70%)'
+                : simStage === 'RECOVERED'
+                ? 'radial-gradient(ellipse, rgba(242, 183, 5, 0.22) 0%, transparent 70%)'
+                : 'radial-gradient(ellipse, rgba(49, 92, 255, 0.16) 0%, transparent 70%)',
+            transition: 'background 800ms ease',
             pointerEvents: 'none',
           }}
         />
-        <AlinmaHeroScene prefersReduced={!!prefersReduced} />
+        <AlinmaHeroScene prefersReduced={!!prefersReduced} simStage={simStage} />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          SCROLL 1 — HERO FACE
+          SCROLL 1 — HERO FACE & FLOATING REVENUE TEST
       ════════════════════════════════════════════════════════════ */}
       <section
         style={{
@@ -58,7 +67,7 @@ export default function HeroPage() {
           flexDirection: 'column',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '100px 24px 48px',
+          padding: '90px 24px 48px',
           zIndex: 10,
           textAlign: 'center',
         }}
@@ -67,7 +76,7 @@ export default function HeroPage() {
         <motion.div
           initial={prefersReduced ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2, ease }}
+          transition={{ duration: 0.6, delay: 0.15, ease }}
           style={{ maxWidth: 680, pointerEvents: 'auto' }}
         >
           <div
@@ -101,15 +110,17 @@ export default function HeroPage() {
               lineHeight: 1.6,
               color: 'var(--text-secondary)',
               margin: '0 auto',
-              maxWidth: 460,
+              maxWidth: 480,
             }}
           >
             Turn failed payments into recovered revenue.
           </p>
         </motion.div>
 
-        {/* Center Space Reserved for the 3D Cards */}
-        <div style={{ height: '24vh' }} />
+        {/* Center Space Reserved for the 3D Cards & Floating Revenue Test */}
+        <div style={{ margin: '36px 0', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
+          <FloatingRevenueTest onStageChange={(stage) => setSimStage(stage)} />
+        </div>
 
         {/* Bottom CTA & Scroll Indicator */}
         <motion.div
@@ -120,13 +131,13 @@ export default function HeroPage() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 24,
+            gap: 20,
             pointerEvents: 'auto',
           }}
         >
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
             <Link href="/playground" className="btn btn-primary" style={{ height: 46, padding: '0 28px' }}>
-              Explore Revenue Recovery <ArrowRight className="w-4 h-4" />
+              Launch Full Playground <ArrowRight className="w-4 h-4" />
             </Link>
             <Link href="/dashboard" className="btn btn-secondary" style={{ height: 46, padding: '0 22px' }}>
               View Dashboard
@@ -164,7 +175,7 @@ export default function HeroPage() {
           padding: '120px 24px',
           zIndex: 10,
           textAlign: 'center',
-          background: 'linear-gradient(180deg, transparent 0%, rgba(5,7,13,0.85) 40%, #05070D 100%)',
+          background: 'linear-gradient(180deg, transparent 0%, rgba(5,7,13,0.88) 40%, #05070D 100%)',
         }}
       >
         <motion.div
@@ -173,12 +184,12 @@ export default function HeroPage() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.7, ease }}
           style={{
-            maxWidth: 780,
+            maxWidth: 820,
             pointerEvents: 'auto',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 20,
+            gap: 24,
           }}
         >
           <div className="eyebrow">
@@ -187,7 +198,7 @@ export default function HeroPage() {
 
           <h2
             style={{
-              fontSize: 'clamp(32px, 4.5vw, 54px)',
+              fontSize: 'clamp(32px, 4.5vw, 56px)',
               fontWeight: 700,
               lineHeight: 1.1,
               letterSpacing: '-0.03em',
@@ -195,19 +206,20 @@ export default function HeroPage() {
               margin: 0,
             }}
           >
-            Every failed payment is an opportunity to recover revenue.
+            Don't lose the payment. <br />
+            <span style={{ color: 'var(--accent)' }}>Recover it.</span>
           </h2>
 
           <p
             style={{
-              fontSize: 'clamp(16px, 1.8vw, 19px)',
+              fontSize: 'clamp(17px, 1.9vw, 20px)',
               lineHeight: 1.65,
               color: 'var(--text-secondary)',
               margin: '0 auto',
-              maxWidth: 580,
+              maxWidth: 620,
             }}
           >
-            Revenue Recovery intelligently identifies failed transactions and attempts the right recovery path automatically — without spamming issuers or degrading customer trust.
+            Every failed payment is an opportunity to recover revenue. Our explainable ML engine attempts the right recovery path automatically — without issuer friction or customer churn.
           </p>
 
           {/* Minimal 3-part tagline pills */}
@@ -217,18 +229,18 @@ export default function HeroPage() {
               gap: 12,
               flexWrap: 'wrap',
               justifyContent: 'center',
-              margin: '16px 0 24px',
+              margin: '12px 0 16px',
             }}
           >
-            {['Intelligent retries', 'Smart recovery', 'Higher authorization rates'].map((tag) => (
+            {['Intelligent retries', 'Smart recovery', 'More successful payments'].map((tag) => (
               <div
                 key={tag}
                 style={{
-                  padding: '8px 16px',
+                  padding: '10px 20px',
                   borderRadius: 'var(--radius-pill)',
                   background: 'rgba(82, 132, 255, 0.08)',
-                  border: '1px solid rgba(82, 132, 255, 0.18)',
-                  fontSize: 13,
+                  border: '1px solid rgba(82, 132, 255, 0.2)',
+                  fontSize: 14,
                   fontWeight: 500,
                   color: 'var(--accent)',
                 }}
@@ -238,13 +250,13 @@ export default function HeroPage() {
             ))}
           </div>
 
-          {/* Direct CTA Button */}
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {/* Direct CTA Buttons */}
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
             <Link href="/playground" className="btn btn-primary" style={{ height: 46, padding: '0 28px' }}>
-              Launch Simulation Playground <ArrowRight className="w-4 h-4" />
+              Interactive Simulation Playground <ArrowRight className="w-4 h-4" />
             </Link>
             <Link href="/design-decisions" className="btn btn-secondary" style={{ height: 46, padding: '0 22px' }}>
-              Read Design Decisions
+              Explore Architecture & Decisions
             </Link>
           </div>
         </motion.div>
