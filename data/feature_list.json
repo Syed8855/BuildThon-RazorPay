@@ -1,0 +1,46 @@
+{
+  "feature_cols": [
+    "attempt_number",
+    "time_since_last_attempt",
+    "time_since_first_failure",
+    "failure_reason",
+    "is_near_payday",
+    "payment_method",
+    "is_recurring",
+    "merchant_category",
+    "customer_segment",
+    "customer_historical_failure_rate",
+    "amount"
+  ],
+  "cat_cols": [
+    "failure_reason",
+    "payment_method",
+    "merchant_category",
+    "customer_segment"
+  ],
+  "label_encoders": {
+    "failure_reason": [
+      "do_not_honor",
+      "insufficient_funds",
+      "issuer_declined",
+      "network_timeout",
+      "processing_error"
+    ],
+    "payment_method": [
+      "card",
+      "netbanking",
+      "upi"
+    ],
+    "merchant_category": [
+      "d2c_subscription",
+      "ecommerce_one_time",
+      "saas"
+    ],
+    "customer_segment": [
+      "high_value",
+      "new",
+      "returning"
+    ]
+  },
+  "model_type": "xgboost"
+}
