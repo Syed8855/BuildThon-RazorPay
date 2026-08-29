@@ -15,19 +15,18 @@ env/
 .env
 *.env
 
-# Generated data files (regenerable from generate.py)
-data/*.csv
+# Generated data files -- large, regenerable
+data/primary_dataset.csv
+data/perturbed_dataset.csv
 data/kaggle/
+
+# Model artifacts -- committed so deployment doesn't need to retrain
+# data/model.joblib   <- intentionally NOT ignored
+# data/feature_list.json <- intentionally NOT ignored
 
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
-
-# Model artifacts (serialized — regenerable)
-data/*.pkl
-data/*.joblib
-data/*.model
-
 # Node / Next.js
 node_modules/
 .next/
