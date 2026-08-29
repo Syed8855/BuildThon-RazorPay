@@ -59,7 +59,7 @@ function getCardTextures(tierName, bgHex1, bgHex2, accentColor, chipGold = true,
   ctxF.fillStyle = 'rgba(255, 255, 255, 0.55)'
   ctxF.fillText(tierName.toUpperCase(), W - 260, 78)
 
-  // Metallic EMV Chip (3D embedded look with circuit traces)
+  // Metallic EMV Chip
   const cx = 54, cy = 126, cw = 96, ch = 72
   const chipGrad = ctxF.createLinearGradient(cx, cy, cx + cw, cy + ch)
   if (chipGold) {
@@ -164,7 +164,7 @@ function getCardTextures(tierName, bgHex1, bgHex2, accentColor, chipGold = true,
 }
 
 /* ─────────────────────────────────────────────────────────────
-   5 Card Configurations (Alinma Spatial Composition Reference)
+   5 Card Configurations (Alinma Composition)
    ───────────────────────────────────────────────────────────── */
 const CARDS = [
   {
@@ -233,9 +233,8 @@ const CARDS = [
 /* ─────────────────────────────────────────────────────────────
    Individual Physical 3D Bank Card
    ───────────────────────────────────────────────────────────── */
-function ArchedCard({ config, index, mouseX, mouseY, scrollProgress, prefersReduced, simStage }) {
+function ArchedCard({ config, index, mouseX, mouseY, dragOffset, scrollProgress, prefersReduced, simStage }) {
   const meshRef = useRef()
-  // Card dimensions: 1.586 : 1 ratio (85.60mm x 53.98mm)
   const CW = 3.38, CH = 2.13, CD = 0.054
 
   const { front: frontTex, back: backTex } = useMemo(
@@ -252,9 +251,12 @@ function ArchedCard({ config, index, mouseX, mouseY, scrollProgress, prefersRedu
     const flowY = prefersReduced ? 0 : Math.sin(t * 0.95 + index * 0.7) * 0.075
     const flowRot = prefersReduced ? 0 : Math.cos(t * 0.75 + index * 0.6) * 0.038
 
-    // Mouse parallax
-    const px = prefersReduced ? 0 : (mouseX.current || 0) * 0.06
-    const py = prefersReduced ? 0 : (mouseY.current || 0) * -0.045
+    // Drag offset & Mouse parallax
+    const dx = dragOffset.current ? dragOffset.current.x * 0.002 : 0
+    const dy = dragOffset.current ? dragOffset.current.y * -0.002 : 0
+
+    const px = prefersReduced ? 0 : (mouseX.current || 0) * 0.06 + dx
+    const py = prefersReduced ? 0 : (mouseY.current || 0) * -0.045 + dy
 
     // Primary Card Physical Reactions during Simulation
     let simOffsetX = 0, simOffsetY = 0, simOffsetZ = 0
@@ -297,7 +299,6 @@ function ArchedCard({ config, index, mouseX, mouseY, scrollProgress, prefersRedu
 
   return (
     <group ref={meshRef} position={config.basePos} rotation={config.baseRot}>
-      {/* ── 3D PHYSICAL CARD BODY ───── */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={[CW, CH, CD]} />
         <meshPhysicalMaterial
@@ -314,11 +315,7 @@ function ArchedCard({ config, index, mouseX, mouseY, scrollProgress, prefersRedu
       {frontTex && (
         <mesh position={[0, 0, CD / 2 + 0.001]}>
           <planeGeometry args={[CW - 0.004, CH - 0.004]} />
-          <meshStandardMaterial
-            map={frontTex}
-            roughness={0.22}
-            metalness={0.15}
-          />
+          <meshStandardMaterial map={frontTex} roughness={0.22} metalness={0.15} />
         </mesh>
       )}
 
@@ -326,11 +323,7 @@ function ArchedCard({ config, index, mouseX, mouseY, scrollProgress, prefersRedu
       {backTex && (
         <mesh position={[0, 0, -(CD / 2 + 0.001)]} rotation={[0, Math.PI, 0]}>
           <planeGeometry args={[CW - 0.004, CH - 0.004]} />
-          <meshStandardMaterial
-            map={backTex}
-            roughness={0.26}
-            metalness={0.12}
-          />
+          <meshStandardMaterial map={backTex} roughness={0.26} metalness={0.12} />
         </mesh>
       )}
 
@@ -384,11 +377,14 @@ function FallbackCard() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Alinma Hero 3D Scene Component (Dribbble 3D Animation Benchmark)
+   Alinma Hero 3D Scene Component with Pointer & Drag Physics
    ───────────────────────────────────────────────────────────── */
 export default function AlinmaHeroScene({ prefersReduced = false, simStage = null }) {
   const mouseX = useRef(0)
   const mouseY = useRef(0)
+  const dragOffset = useRef({ x: 0, y: 0 })
+  const isDragging = useRef(false)
+  const dragStart = useRef({ x: 0, y: 0 })
   const scrollProgress = useRef(0)
   const [mounted, setMounted] = useState(false)
 
@@ -398,6 +394,22 @@ export default function AlinmaHeroScene({ prefersReduced = false, simStage = nul
     const handleMouseMove = (e) => {
       mouseX.current = (e.clientX / window.innerWidth - 0.5) * 2
       mouseY.current = (e.clientY / window.innerHeight - 0.5) * 2
+
+      if (isDragging.current) {
+        dragOffset.current = {
+          x: e.clientX - dragStart.current.x,
+          y: e.clientY - dragStart.current.y,
+        }
+      }
+    }
+
+    const handleMouseDown = (e) => {
+      isDragging.current = true
+      dragStart.current = { x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y }
+    }
+
+    const handleMouseUp = () => {
+      isDragging.current = false
     }
 
     const handleScroll = () => {
@@ -408,11 +420,15 @@ export default function AlinmaHeroScene({ prefersReduced = false, simStage = nul
     }
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    window.addEventListener('mousedown', handleMouseDown, { passive: true })
+    window.addEventListener('mouseup', handleMouseUp, { passive: true })
     window.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mouseup', handleMouseUp)
       window.removeEventListener('scroll', handleScroll)
     }
   }, [])
@@ -431,7 +447,7 @@ export default function AlinmaHeroScene({ prefersReduced = false, simStage = nul
         width: '100%',
         height: '100%',
         position: 'relative',
-        pointerEvents: 'none', // Crucial: WebGL layer does not intercept user clicks or navigation
+        pointerEvents: 'none',
       }}
     >
       <Canvas
@@ -447,14 +463,12 @@ export default function AlinmaHeroScene({ prefersReduced = false, simStage = nul
       >
         <PerspectiveCamera makeDefault position={[0, 0, 5.6]} fov={40} />
 
-        {/* Studio Three-Point Lighting */}
         <ambientLight intensity={0.38} />
         <directionalLight position={[4, 6, 5]} intensity={1.4} color="#FFFFFF" />
         <directionalLight position={[-4, 2, 3]} intensity={0.45} color="#80A8FF" />
         <pointLight position={[0, 3, -3]} intensity={5.0} color="#315CFF" distance={15} />
         <pointLight position={[2, -4, 2]} intensity={0.7} color="#F2B705" distance={10} />
 
-        {/* 5 Layered Arched Bank Cards (Alinma Composition) */}
         {CARDS.map((card, idx) => (
           <ArchedCard
             key={card.id}
@@ -462,13 +476,13 @@ export default function AlinmaHeroScene({ prefersReduced = false, simStage = nul
             index={idx}
             mouseX={mouseX}
             mouseY={mouseY}
+            dragOffset={dragOffset}
             scrollProgress={scrollProgress}
             prefersReduced={prefersReduced}
             simStage={simStage}
           />
         ))}
 
-        {/* Soft Contact Floor Shadow */}
         <ContactShadows
           position={[0, -2.1, 0]}
           opacity={0.65}

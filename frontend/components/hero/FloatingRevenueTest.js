@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Play, Sparkles, CheckCircle2, AlertCircle, RefreshCw, Volume2 } from 'lucide-react'
+import { playFailSound, playScanSound, playRetrySound, playSuccessSound } from '@/lib/soundEffects'
 
 const ease = [0.22, 1, 0.36, 1]
 const fmtINR = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n ?? 0)
@@ -30,12 +31,14 @@ export default function FloatingRevenueTest({ onStageChange }) {
     setStage('INITIATING')
     setSimStepText(`PAYMENT INITIATED · ${fmtINR(amount)}`)
     if (onStageChange) onStageChange('INITIATING')
+    playScanSound()
 
     // Stage 2: PAYMENT FAILED
     setTimeout(() => {
       setStage('FAILED')
       setSimStepText('PAYMENT FAILED')
       if (onStageChange) onStageChange('FAILED')
+      playFailSound()
     }, 1100)
 
     // Stage 3: RECOVERY ENGINE ANALYZING
@@ -43,6 +46,7 @@ export default function FloatingRevenueTest({ onStageChange }) {
       setStage('ANALYZING')
       setSimStepText('RECOVERY ENGINE ANALYZING…')
       if (onStageChange) onStageChange('ANALYZING')
+      playScanSound()
     }, 2300)
 
     // Stage 4: SMART RETRY
@@ -50,6 +54,7 @@ export default function FloatingRevenueTest({ onStageChange }) {
       setStage('RETRYING')
       setSimStepText('SMART RETRY · Optimal window detected')
       if (onStageChange) onStageChange('RETRYING')
+      playRetrySound()
     }, 3600)
 
     // Stage 5 & 6: PAYMENT RECOVERED
@@ -57,6 +62,7 @@ export default function FloatingRevenueTest({ onStageChange }) {
       setStage('RECOVERED')
       setSimStepText(`✓ PAYMENT RECOVERED · +${fmtINR(amount)}`)
       if (onStageChange) onStageChange('RECOVERED')
+      playSuccessSound()
     }, 5000)
   }
 
@@ -108,6 +114,7 @@ export default function FloatingRevenueTest({ onStageChange }) {
           >
             REVENUE TEST
           </span>
+          <Volume2 className="w-3.5 h-3.5 text-muted opacity-60 ml-1" title="Audio Enabled" />
         </div>
         {stage !== 'IDLE' && (
           <button

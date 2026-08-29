@@ -7,7 +7,9 @@ import OrchestratorLine from '@/components/OrchestratorLine'
 import ShapBars from '@/components/ShapBars'
 import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import { useBackend } from '@/context/BackendContext'
-import { X, Search, Play, RotateCcw, CheckCircle2, AlertCircle, Sparkles, ArrowRight } from 'lucide-react'
+import { exportTransactionsCSV } from '@/lib/exportCsv'
+import { playFailSound, playScanSound, playRetrySound, playSuccessSound } from '@/lib/soundEffects'
+import { X, Search, Play, RotateCcw, CheckCircle2, Download, Radio } from 'lucide-react'
 
 const fmtINR = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n ?? 0)
 const ease = [0.22, 1, 0.36, 1]
@@ -25,16 +27,17 @@ const REASON_FILTERS = [
 
 /* ── Replay Recovery Modal ───────────────────────────────────── */
 function ReplayModal({ txn, onClose }) {
-  const [replayStage, setReplayStage] = useState('INITIATED') // INITIATED | FAILED | ANALYZING | RETRYING | RECOVERED
+  const [replayStage, setReplayStage] = useState('INITIATED')
 
   useEffect(() => {
     if (!txn) return
     setReplayStage('INITIATED')
+    playScanSound()
 
-    const t1 = setTimeout(() => setReplayStage('FAILED'), 1100)
-    const t2 = setTimeout(() => setReplayStage('ANALYZING'), 2300)
-    const t3 = setTimeout(() => setReplayStage('RETRYING'), 3600)
-    const t4 = setTimeout(() => setReplayStage('RECOVERED'), 5000)
+    const t1 = setTimeout(() => { setReplayStage('FAILED'); playFailSound() }, 1100)
+    const t2 = setTimeout(() => { setReplayStage('ANALYZING'); playScanSound() }, 2300)
+    const t3 = setTimeout(() => { setReplayStage('RETRYING'); playRetrySound() }, 3600)
+    const t4 = setTimeout(() => { setReplayStage('RECOVERED'); playSuccessSound() }, 5000)
 
     return () => {
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4)
@@ -73,7 +76,6 @@ function ReplayModal({ txn, onClose }) {
           padding: '28px',
         }}
       >
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
             <div className="eyebrow"><span className="eyebrow__dot" /> RECOVERY REPLAY</div>
@@ -84,7 +86,6 @@ function ReplayModal({ txn, onClose }) {
           </button>
         </div>
 
-        {/* Animated Journey Timeline */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, margin: '24px 0' }}>
           {steps.map((step, idx) => {
             const isPast = steps.findIndex((s) => s.id === replayStage) >= idx
@@ -149,7 +150,6 @@ function ReplayModal({ txn, onClose }) {
           })}
         </div>
 
-        {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             Status: <strong style={{ color: 'var(--text-primary)' }}>{replayStage}</strong>
@@ -158,10 +158,11 @@ function ReplayModal({ txn, onClose }) {
             className="btn btn-secondary"
             onClick={() => {
               setReplayStage('INITIATED')
-              setTimeout(() => setReplayStage('FAILED'), 1100)
-              setTimeout(() => setReplayStage('ANALYZING'), 2300)
-              setTimeout(() => setReplayStage('RETRYING'), 3600)
-              setTimeout(() => setReplayStage('RECOVERED'), 5000)
+              playScanSound()
+              setTimeout(() => { setReplayStage('FAILED'); playFailSound() }, 1100)
+              setTimeout(() => { setReplayStage('ANALYZING'); playScanSound() }, 2300)
+              setTimeout(() => { setReplayStage('RETRYING'); playRetrySound() }, 3600)
+              setTimeout(() => { setReplayStage('RECOVERED'); playSuccessSound() }, 5000)
             }}
           >
             <RotateCcw className="w-3.5 h-3.5" /> Replay Again
@@ -225,7 +226,6 @@ function DetailDrawer({ txn, onClose, onReplay }) {
         </div>
 
         <div className="drawer__body">
-          {/* Orchestrator Decision */}
           <div>
             <div className="drawer__section-hdr">Orchestrator Decision</div>
             {txn.orchestrator_result ? (
@@ -235,7 +235,6 @@ function DetailDrawer({ txn, onClose, onReplay }) {
             )}
           </div>
 
-          {/* ML Output */}
           {prob !== null && (
             <div>
               <div className="drawer__section-hdr">ML Success Prediction</div>
@@ -247,7 +246,6 @@ function DetailDrawer({ txn, onClose, onReplay }) {
             </div>
           )}
 
-          {/* Attempt Timeline */}
           {txn.attempt_history?.length > 0 && (
             <div>
               <div className="drawer__section-hdr">Attempt Timeline</div>
@@ -276,7 +274,6 @@ function DetailDrawer({ txn, onClose, onReplay }) {
             </div>
           )}
 
-          {/* Customer Message */}
           {txn.customer_message && (
             <div>
               <div className="drawer__section-hdr">Dunning Communication Preview</div>
@@ -294,7 +291,6 @@ function DetailDrawer({ txn, onClose, onReplay }) {
             </div>
           )}
 
-          {/* Metadata */}
           <div>
             <div className="drawer__section-hdr">Transaction Attributes</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -342,6 +338,7 @@ export default function TransactionsPage() {
   const [statusF, setStatusF] = useState('all')
   const [reasonF, setReasonF] = useState('all')
   const [search, setSearch] = useState('')
+  const [liveStream, setLiveStream] = useState(false)
   const PAGE_SIZE = 50
 
   const loadTransactions = useCallback(async () => {
@@ -360,6 +357,29 @@ export default function TransactionsPage() {
     loadTransactions()
   }, [loadTransactions])
 
+  // Live real-time feed simulation streamer
+  useEffect(() => {
+    if (!liveStream) return
+    const interval = setInterval(() => {
+      const newTxn = {
+        transaction_id: `txn_live_${Math.random().toString(36).substring(2, 9)}`,
+        amount: Math.floor(Math.random() * 4000) + 1200,
+        status: Math.random() > 0.3 ? 'recovered' : 'retrying',
+        failure_reason: 'insufficient_funds',
+        payment_method: 'card',
+        merchant_category: 'saas',
+        customer_segment: 'high_value',
+        attempt_count: 2,
+        max_attempts: 4,
+        ml_result: { success_probability: 0.84 },
+      }
+      setTxns((prev) => [newTxn, ...prev])
+      playSuccessSound()
+    }, 4500)
+
+    return () => clearInterval(interval)
+  }, [liveStream])
+
   const filtered = txns.filter((t) => {
     if (statusF !== 'all' && t.status !== statusF) return false
     if (reasonF !== 'all' && t.failure_reason !== reasonF) return false
@@ -369,7 +389,6 @@ export default function TransactionsPage() {
 
   return (
     <div className="page">
-      {/* 3D Vaulta Loading Experience if backend is warming up */}
       <AnimatePresence>
         {showVaulta && !dataLoaded && (
           <VaultaLoadingScreen
@@ -380,14 +399,39 @@ export default function TransactionsPage() {
       </AnimatePresence>
 
       <div className="container">
-        <div className="page-hdr">
-          <div className="eyebrow">
-            <span className="eyebrow__dot" /> TRANSACTIONS AUDIT
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
+          <div>
+            <div className="eyebrow">
+              <span className="eyebrow__dot" /> TRANSACTIONS AUDIT
+            </div>
+            <h1 style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.03em', marginTop: 8 }}>Transaction Feed</h1>
+            {dataLoaded && (
+              <p className="page-hdr__sub" style={{ margin: 0 }}>
+                {txns.length} payment recoveries analyzed · click any entry for full AI diagnostics or click Replay
+              </p>
+            )}
           </div>
-          <h1>Transaction Feed</h1>
-          {dataLoaded && (
-            <p className="page-hdr__sub">{txns.length} payment recoveries analyzed · click any entry for full AI diagnostics or click Replay</p>
-          )}
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {/* Live Streaming Toggle */}
+            <button
+              className={`btn ${liveStream ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setLiveStream(!liveStream)}
+              style={{ height: 38, padding: '0 14px', fontSize: 13, gap: 6 }}
+            >
+              <Radio className={`w-3.5 h-3.5 ${liveStream ? 'animate-pulse' : ''}`} />
+              {liveStream ? 'Live Stream Active' : 'Enable Live Stream'}
+            </button>
+
+            {/* CSV Export Button */}
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportTransactionsCSV(filtered)}
+              style={{ height: 38, padding: '0 14px', fontSize: 13, gap: 6 }}
+            >
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
+          </div>
         </div>
 
         {dataLoaded && (
@@ -458,7 +502,6 @@ export default function TransactionsPage() {
                         background: isSel ? 'rgba(82, 132, 255, 0.06)' : 'var(--surface)',
                       }}
                     >
-                      {/* ID & Amount */}
                       <div>
                         <div className="text-mono" style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
                           {txn.transaction_id}
@@ -468,17 +511,14 @@ export default function TransactionsPage() {
                         </div>
                       </div>
 
-                      {/* Failure Reason */}
                       <div>
                         <span className="badge badge--reason">{txn.failure_reason.replace(/_/g, ' ')}</span>
                       </div>
 
-                      {/* Method */}
                       <div className="text-muted text-sm" style={{ textTransform: 'capitalize' }}>
                         {txn.payment_method}
                       </div>
 
-                      {/* Probability */}
                       <div>
                         {prob != null ? (
                           <div className="prob-bar">
@@ -492,12 +532,10 @@ export default function TransactionsPage() {
                         )}
                       </div>
 
-                      {/* Status */}
                       <div>
                         <StatusBadge status={txn.status} />
                       </div>
 
-                      {/* Replay CTA */}
                       <button
                         className="btn btn-secondary"
                         onClick={(e) => {

@@ -7,7 +7,9 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import StatusBadge from '@/components/StatusBadge'
 import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import { useBackend } from '@/context/BackendContext'
-import { ArrowRight, TrendingUp, DollarSign, Activity, AlertOctagon, Info, Calendar } from 'lucide-react'
+import { exportSummaryCSV } from '@/lib/exportCsv'
+import { playSuccessSound } from '@/lib/soundEffects'
+import { ArrowRight, TrendingUp, DollarSign, Activity, AlertOctagon, Info, Calendar, Download, Radio } from 'lucide-react'
 
 const fmtINR = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n ?? 0)
 const fmtNum = (n) => new Intl.NumberFormat('en-IN').format(n ?? 0)
@@ -98,6 +100,7 @@ export default function DashboardPage() {
   const [showVaulta, setShowVaulta] = useState(true)
   const [timeRange, setTimeRange] = useState('30D')
   const [activeKpiDetail, setActiveKpiDetail] = useState(null)
+  const [liveStream, setLiveStream] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
@@ -123,12 +126,30 @@ export default function DashboardPage() {
     loadData()
   }, [loadData])
 
+  // Live streaming simulation streamer
+  useEffect(() => {
+    if (!liveStream) return
+    const interval = setInterval(() => {
+      const newTxn = {
+        transaction_id: `txn_live_${Math.random().toString(36).substring(2, 9)}`,
+        amount: Math.floor(Math.random() * 4000) + 1200,
+        status: 'recovered',
+        failure_reason: 'insufficient_funds',
+        attempt_count: 2,
+        max_attempts: 4,
+      }
+      setTxns((prev) => [newTxn, ...prev.slice(0, 5)])
+      playSuccessSound()
+    }, 4500)
+
+    return () => clearInterval(interval)
+  }, [liveStream])
+
   const f = analytics?.funnel || {}
   const rev = analytics?.revenue || {}
   const maxN = Math.max(f.total_failed || 1, f.retrying || 0, f.recovered || 0)
   const N = maxN > 200 ? 10 : maxN > 50 ? 5 : 1
 
-  // Time range scaling multiplier
   const multiplier = timeRange === '7D' ? 0.25 : timeRange === '90D' ? 2.8 : 1.0
 
   const chartData = [
@@ -178,7 +199,6 @@ export default function DashboardPage() {
 
   return (
     <div className="page">
-      {/* 3D Vaulta Loading Experience if backend is warming up */}
       <AnimatePresence>
         {showVaulta && !dataLoaded && (
           <VaultaLoadingScreen
@@ -189,7 +209,6 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <div className="container">
-        {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
           <div>
             <div className="eyebrow">
@@ -203,26 +222,43 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Time Filter Pills */}
-          <div className="filter-bar" style={{ margin: 0 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Calendar className="w-3.5 h-3.5" /> Timeframe:
-            </span>
-            {TIME_RANGES.map((t) => (
-              <button
-                key={t}
-                className={`filter-pill${timeRange === t ? ' active' : ''}`}
-                onClick={() => setTimeRange(t)}
-              >
-                {t}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {/* Live Streaming Toggle */}
+            <button
+              className={`btn ${liveStream ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setLiveStream(!liveStream)}
+              style={{ height: 38, padding: '0 14px', fontSize: 13, gap: 6 }}
+            >
+              <Radio className={`w-3.5 h-3.5 ${liveStream ? 'animate-pulse' : ''}`} />
+              {liveStream ? 'Live Feed Active' : 'Enable Live Feed'}
+            </button>
+
+            {/* Export Summary CSV */}
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportSummaryCSV(analytics || {})}
+              style={{ height: 38, padding: '0 14px', fontSize: 13, gap: 6 }}
+            >
+              <Download className="w-3.5 h-3.5" /> Export Report CSV
+            </button>
+
+            {/* Time Filter Pills */}
+            <div className="filter-bar" style={{ margin: 0 }}>
+              {TIME_RANGES.map((t) => (
+                <button
+                  key={t}
+                  className={`filter-pill${timeRange === t ? ' active' : ''}`}
+                  onClick={() => setTimeRange(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {dataLoaded && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}>
-            {/* KPI Strip with Click Context */}
             <div className="metric-grid">
               {kpis.map((m) => (
                 <motion.div
@@ -266,7 +302,6 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Dynamic Revenue Trend Chart Section */}
             <div className="section">
               <div className="section-hdr">
                 <span className="section-title">Recovered Revenue Trend ({timeRange})</span>
@@ -290,7 +325,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Revenue at risk Highlight */}
             <div className="section">
               <div
                 className="card card--padded"
@@ -327,7 +361,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Pictogram Funnel Chart */}
             <div className="section">
               <div className="section-hdr">
                 <span className="section-title">Recovery Funnel Distribution</span>
@@ -352,7 +385,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Recent activity */}
             <div className="section">
               <div className="section-hdr">
                 <span className="section-title">Recent Recovery Activity</span>
