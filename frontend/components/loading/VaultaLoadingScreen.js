@@ -30,7 +30,7 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
     if (isReady && onReadyTransitionComplete) {
       const timer = setTimeout(() => {
         onReadyTransitionComplete()
-      }, 900)
+      }, 700)
       return () => clearTimeout(timer)
     }
   }, [isReady, onReadyTransitionComplete])
@@ -40,11 +40,14 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       style={{
         position: 'fixed',
-        inset: 0,
-        zIndex: 999,
+        top: 60,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 90, // Below the z-index: 1000 navbar so navigation is ALWAYS clickable
         background: '#05070D',
         display: 'flex',
         flexDirection: 'column',
@@ -57,8 +60,8 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
       <div
         style={{
           position: 'absolute',
-          width: 600,
-          height: 600,
+          width: 540,
+          height: 540,
           borderRadius: '50%',
           background: isReady
             ? 'radial-gradient(circle, rgba(79, 111, 255, 0.22) 0%, transparent 70%)'
@@ -72,23 +75,25 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
       <div
         style={{
           width: '100%',
-          maxWidth: 720,
-          height: 380,
+          maxWidth: 680,
+          height: 360,
           position: 'relative',
           zIndex: 1,
+          pointerEvents: 'none',
         }}
       >
         <VaultaLoadingScene isReady={isReady} />
       </div>
 
-      {/* Minimalist Premium Status Typography */}
+      {/* Minimalist Status Typography */}
       <div
         style={{
           position: 'relative',
           zIndex: 2,
           textAlign: 'center',
-          marginTop: 12,
+          marginTop: 10,
           padding: '0 24px',
+          pointerEvents: 'none',
         }}
       >
         <div
@@ -101,7 +106,7 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
             color: isReady ? '#7C8FFF' : '#5284FF',
-            marginBottom: 10,
+            marginBottom: 8,
             transition: 'color 400ms ease',
           }}
         >
@@ -120,7 +125,7 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
 
         <h2
           style={{
-            fontSize: 'clamp(20px, 3vw, 26px)',
+            fontSize: 'clamp(20px, 3vw, 24px)',
             fontWeight: 600,
             letterSpacing: '-0.03em',
             color: '#FFFFFF',
@@ -135,10 +140,10 @@ export default function VaultaLoadingScreen({ isReady = false, onReadyTransition
           <AnimatePresence mode="wait">
             <motion.p
               key={isReady ? 'ready-sub' : SUBTITLES[subIndex]}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
               style={{
                 fontSize: 14,
                 color: '#737A8C',

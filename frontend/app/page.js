@@ -2,9 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { ArrowRight, RefreshCw, Shield, Brain, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
+import { ArrowRight, ChevronDown } from 'lucide-react'
 
 const AlinmaHeroScene = dynamic(() => import('@/components/hero/AlinmaHeroScene'), {
   ssr: false,
@@ -13,462 +12,244 @@ const AlinmaHeroScene = dynamic(() => import('@/components/hero/AlinmaHeroScene'
 
 const ease = [0.22, 1, 0.36, 1]
 
-const METRICS = [
-  { value: '₹48,250', label: 'Recovered today' },
-  { value: '127', label: 'Payments recovered' },
-  { value: '86%', label: 'Recovery rate' },
-]
-
-const FEATURES = [
-  {
-    icon: <Shield className="w-6 h-6 text-accent" />,
-    title: 'Rule guardrails first',
-    desc: 'Hard-fail short-circuits, max-attempt caps, and spacing rules fire before the model — eliminating impossible retries at zero computational cost.',
-  },
-  {
-    icon: <Brain className="w-6 h-6 text-[#7C8FFF]" />,
-    title: 'ML where it matters',
-    desc: 'XGBoost predicts retry success probability for transient failures. Trained on 3,500+ transactions with perturbed-parameter out-of-distribution validation.',
-  },
-  {
-    icon: <Sparkles className="w-6 h-6 text-accent" />,
-    title: 'Fully explainable',
-    desc: 'Every decision includes exact SHAP contributions. Your team sees precisely which features drove each retry call with zero black boxes.',
-  },
-]
-
 export default function HeroPage() {
   const prefersReduced = useReducedMotion()
-  const [txState, setTxState] = useState('idle') // idle | processing | failed | engine | recovered
-  const [tickerAmount, setTickerAmount] = useState(0)
-
-  // Interactive transaction sequence trigger
-  const runTransactionSimulation = () => {
-    setTxState('processing')
-    setTickerAmount(0)
-
-    setTimeout(() => {
-      setTxState('failed')
-    }, 1400)
-
-    setTimeout(() => {
-      setTxState('engine')
-    }, 2800)
-
-    setTimeout(() => {
-      setTxState('recovered')
-      // Count up ticker
-      let curr = 0
-      const target = 2499
-      const step = 85
-      const interval = setInterval(() => {
-        curr += step
-        if (curr >= target) {
-          setTickerAmount(target)
-          clearInterval(interval)
-        } else {
-          setTickerAmount(curr)
-        }
-      }, 25)
-    }, 4200)
-  }
-
-  // Run initial demo on mount
-  useEffect(() => {
-    if (prefersReduced) {
-      setTxState('recovered')
-      setTickerAmount(2499)
-      return
-    }
-    const timer = setTimeout(() => {
-      runTransactionSimulation()
-    }, 1200)
-    return () => clearTimeout(timer)
-  }, [prefersReduced])
 
   return (
-    <div style={{ fontFamily: 'var(--font)', background: 'var(--bg-primary)', color: 'var(--text-primary)', overflowX: 'hidden' }}>
-      {/* ── Hero section ────────────────────────────────────────────── */}
+    <div style={{ fontFamily: 'var(--font)', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative' }}>
+      
+      {/* ── Fixed Centered 3D Card Layer (Visible across both scrolls) ── */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1,
+          pointerEvents: 'none', // Critical: Never intercept navigation or clicks
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Subtle Ambient Glow */}
+        <div
+          style={{
+            position: 'absolute',
+            width: 'min(700px, 90vw)',
+            height: 480,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse, rgba(49, 92, 255, 0.14) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }}
+        />
+        <AlinmaHeroScene prefersReduced={!!prefersReduced} />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+          SCROLL 1 — HERO FACE
+      ════════════════════════════════════════════════════════════ */}
       <section
         style={{
           position: 'relative',
           minHeight: '100vh',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(420px, 1fr) 1.25fr',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          paddingTop: 60,
-          overflow: 'hidden',
+          padding: '100px 24px 48px',
+          zIndex: 10,
+          textAlign: 'center',
         }}
       >
-        {/* Deep Navy Atmosphere Background */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 0,
-            background: 'radial-gradient(ellipse 85% 75% at 75% 45%, #080C18 0%, var(--bg-primary) 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Micro Isometric Grid Texture */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 0,
-            backgroundImage: 'radial-gradient(rgba(255,255,255,0.028) 1px, transparent 1px)',
-            backgroundSize: '36px 36px',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* ── LEFT — Copy & Hero Action ───────────────────────────── */}
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 10,
-            padding: '40px 48px 40px 56px',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
+        {/* Top Header Section */}
+        <motion.div
+          initial={prefersReduced ? false : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease }}
+          style={{ maxWidth: 680, pointerEvents: 'auto' }}
         >
-          {/* Eyebrow */}
-          <motion.div
-            initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2, ease }}
+          <div
             className="eyebrow"
-            style={{ marginBottom: 20 }}
+            style={{
+              marginBottom: 16,
+              justifyContent: 'center',
+              display: 'inline-flex',
+            }}
           >
             <span className="eyebrow__dot" /> REVENUE RECOVERY
-          </motion.div>
+          </div>
 
-          {/* Heading */}
-          <motion.h1
-            initial={prefersReduced ? false : { opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.35, ease }}
+          <h1
             style={{
-              fontSize: 'clamp(52px, 5.5vw, 84px)',
+              fontSize: 'clamp(44px, 5.5vw, 76px)',
               fontWeight: 700,
-              lineHeight: 1.0,
+              lineHeight: 1.05,
               letterSpacing: '-0.04em',
               color: 'var(--text-primary)',
-              marginBottom: 20,
+              margin: '0 0 16px',
             }}
           >
             Recover more.<br />
             <span style={{ color: 'var(--text-secondary)' }}>Lose less.</span>
-          </motion.h1>
+          </h1>
 
-          {/* Body */}
-          <motion.p
-            initial={prefersReduced ? false : { opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5, ease }}
+          <p
             style={{
-              fontSize: 18,
-              lineHeight: 1.62,
+              fontSize: 'clamp(16px, 2vw, 18px)',
+              lineHeight: 1.6,
               color: 'var(--text-secondary)',
-              marginBottom: 36,
+              margin: '0 auto',
               maxWidth: 460,
             }}
           >
-            Automatically recover failed payments and turn missed transactions
-            into revenue — with explainable AI, rule guardrails, and zero issuer friction.
-          </motion.p>
+            Turn failed payments into recovered revenue.
+          </p>
+        </motion.div>
 
-          {/* CTAs */}
-          <motion.div
-            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.65, ease }}
-            style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 48, flexWrap: 'wrap' }}
-          >
-            <Link href="/playground" className="btn btn-primary" style={{ padding: '0 28px', height: 46 }}>
-              Start recovering now <ArrowRight className="w-4 h-4" />
+        {/* Center Space Reserved for the 3D Cards */}
+        <div style={{ height: '24vh' }} />
+
+        {/* Bottom CTA & Scroll Indicator */}
+        <motion.div
+          initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.45, ease }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 24,
+            pointerEvents: 'auto',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Link href="/playground" className="btn btn-primary" style={{ height: 46, padding: '0 28px' }}>
+              Explore Revenue Recovery <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link href="/design-decisions" className="btn btn-secondary" style={{ height: 46 }}>
-              See how it works
+            <Link href="/dashboard" className="btn btn-secondary" style={{ height: 46, padding: '0 22px' }}>
+              View Dashboard
             </Link>
-          </motion.div>
-
-          {/* Metrics Strip */}
-          <motion.div
-            initial={prefersReduced ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            style={{
-              display: 'flex',
-              gap: 0,
-              borderTop: '1px solid var(--border)',
-              paddingTop: 24,
-            }}
-          >
-            {METRICS.map((m, i) => (
-              <div
-                key={m.label}
-                style={{
-                  flex: 1,
-                  paddingRight: 24,
-                  borderRight: i < METRICS.length - 1 ? '1px solid var(--border)' : 'none',
-                  marginRight: i < METRICS.length - 1 ? 24 : 0,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 700,
-                    letterSpacing: '-0.03em',
-                    lineHeight: 1.1,
-                    marginBottom: 4,
-                  }}
-                >
-                  {m.value}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.label}</div>
-              </div>
-            ))}
-          </motion.div>
-        </div>
-
-        {/* ── RIGHT — Alinma 3D Composition & Live Transaction State ── */}
-        <div style={{ position: 'relative', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {/* Atmospheric Electric Blue Glow */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%,-50%)',
-              width: 580,
-              height: 460,
-              borderRadius: '50%',
-              background: 'radial-gradient(ellipse, rgba(49,92,255,0.18) 0%, transparent 72%)',
-              pointerEvents: 'none',
-              zIndex: 1,
-            }}
-          />
-
-          {/* 3D Arched Cards Canvas */}
-          <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
-            <AlinmaHeroScene txState={txState} prefersReduced={!!prefersReduced} />
           </div>
 
-          {/* Floating Transaction State HUD Overlay */}
           <div
             style={{
-              position: 'absolute',
-              bottom: '14%',
-              right: '8%',
-              zIndex: 20,
               display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              maxWidth: 320,
-              width: '100%',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
             }}
           >
-            {/* Live Interactive Status Card */}
-            <div
-              style={{
-                background: 'rgba(11, 16, 28, 0.85)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                border: '1px solid var(--border-medium)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px 18px',
-                boxShadow: 'var(--shadow-card), 0 0 30px rgba(0,0,0,0.5)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  TRANSACTION STATE
-                </span>
-                <button
-                  onClick={runTransactionSimulation}
-                  disabled={txState === 'processing' || txState === 'failed' || txState === 'engine'}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--accent)',
-                    fontSize: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    cursor: 'pointer',
-                    opacity: txState === 'recovered' || txState === 'idle' ? 1 : 0.4,
-                  }}
-                >
-                  <RefreshCw className="w-3 h-3" /> Replay
-                </button>
-              </div>
-
-              {/* State Transitions */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {/* Step 1: Processing */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 12,
-                    color: txState === 'processing' ? '#5284FF' : 'var(--text-muted)',
-                    fontWeight: txState === 'processing' ? 600 : 400,
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: txState === 'processing' ? '#5284FF' : 'rgba(255,255,255,0.15)' }} />
-                  PAYMENT PROCESSING
-                </div>
-
-                {/* Step 2: Failed */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 12,
-                    color: txState === 'failed' ? '#C97070' : 'var(--text-muted)',
-                    fontWeight: txState === 'failed' ? 600 : 400,
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: txState === 'failed' ? '#C97070' : 'rgba(255,255,255,0.15)' }} />
-                  PAYMENT FAILED (INSUFFICIENT FUNDS)
-                </div>
-
-                {/* Step 3: Recovery Engine */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 12,
-                    color: txState === 'engine' ? '#7C8FFF' : 'var(--text-muted)',
-                    fontWeight: txState === 'engine' ? 600 : 400,
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: txState === 'engine' ? '#7C8FFF' : 'rgba(255,255,255,0.15)' }} />
-                  RECOVERY ENGINE EVALUATION
-                </div>
-
-                {/* Step 4: Recovered */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 12,
-                    color: txState === 'recovered' ? '#4F6FFF' : 'var(--text-muted)',
-                    fontWeight: txState === 'recovered' ? 600 : 400,
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: txState === 'recovered' ? '#4F6FFF' : 'rgba(255,255,255,0.15)' }} />
-                  PAYMENT RECOVERED (OPTIMAL BACKOFF)
-                </div>
-              </div>
-
-              {/* Step 5: Ticker Highlight */}
-              {txState === 'recovered' && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, ease }}
-                  style={{
-                    marginTop: 12,
-                    padding: '10px 12px',
-                    background: 'rgba(79, 111, 255, 0.12)',
-                    border: '1px solid rgba(79, 111, 255, 0.28)',
-                    borderRadius: 'var(--radius-sm)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle2 className="w-4 h-4 text-[#7C8FFF]" />
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Recovered</span>
-                  </div>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
-                    ₹{tickerAmount.toLocaleString('en-IN')}
-                  </span>
-                </motion.div>
-              )}
-            </div>
+            <span>Scroll to explore</span>
+            <ChevronDown className="w-4 h-4 animate-bounce" />
           </div>
-        </div>
+        </motion.div>
       </section>
 
-      {/* ── Below Fold — Why It Works ──────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════
+          SCROLL 2 — HERO EXTENSION (Continuous Narrative)
+      ════════════════════════════════════════════════════════════ */}
       <section
         style={{
-          background: 'var(--bg-secondary)',
-          borderTop: '1px solid var(--border)',
-          padding: '88px 56px',
+          position: 'relative',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '120px 24px',
+          zIndex: 10,
+          textAlign: 'center',
+          background: 'linear-gradient(180deg, transparent 0%, rgba(5,7,13,0.85) 40%, #05070D 100%)',
         }}
       >
-        <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-          <motion.div
-            className="eyebrow"
-            style={{ marginBottom: 16 }}
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, ease }}
-          >
-            <span className="eyebrow__dot" /> WHY IT WORKS
-          </motion.div>
+        <motion.div
+          initial={prefersReduced ? false : { opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-100px' }}
+          transition={{ duration: 0.7, ease }}
+          style={{
+            maxWidth: 780,
+            pointerEvents: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 20,
+          }}
+        >
+          <div className="eyebrow">
+            <span className="eyebrow__dot" /> AUTONOMOUS OPTIMIZATION
+          </div>
 
-          <motion.h2
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.08, ease }}
+          <h2
             style={{
-              fontSize: 'clamp(32px, 4vw, 48px)',
+              fontSize: 'clamp(32px, 4.5vw, 54px)',
               fontWeight: 700,
+              lineHeight: 1.1,
               letterSpacing: '-0.03em',
               color: 'var(--text-primary)',
-              marginBottom: 48,
-              lineHeight: 1.1,
+              margin: 0,
             }}
           >
-            Not another brute-force retry.
-          </motion.h2>
+            Every failed payment is an opportunity to recover revenue.
+          </h2>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-            {FEATURES.map((f, i) => (
-              <motion.div
-                key={f.title}
-                className="card card--padded card--hover"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.45, ease }}
+          <p
+            style={{
+              fontSize: 'clamp(16px, 1.8vw, 19px)',
+              lineHeight: 1.65,
+              color: 'var(--text-secondary)',
+              margin: '0 auto',
+              maxWidth: 580,
+            }}
+          >
+            Revenue Recovery intelligently identifies failed transactions and attempts the right recovery path automatically — without spamming issuers or degrading customer trust.
+          </p>
+
+          {/* Minimal 3-part tagline pills */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              margin: '16px 0 24px',
+            }}
+          >
+            {['Intelligent retries', 'Smart recovery', 'Higher authorization rates'].map((tag) => (
+              <div
+                key={tag}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'rgba(82, 132, 255, 0.08)',
+                  border: '1px solid rgba(82, 132, 255, 0.18)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--accent)',
+                }}
               >
-                <div style={{ marginBottom: 16 }}>{f.icon}</div>
-                <h3 style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 10 }}>{f.title}</h3>
-                <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.65 }}>{f.desc}</p>
-              </motion.div>
+                ✦ {tag}
+              </div>
             ))}
           </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            style={{ marginTop: 52, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}
-          >
-            <Link href="/playground" className="btn btn-primary">
-              Try the simulation →
+          {/* Direct CTA Button */}
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Link href="/playground" className="btn btn-primary" style={{ height: 46, padding: '0 28px' }}>
+              Launch Simulation Playground <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link href="/dashboard" className="btn btn-secondary">
-              View the dashboard
+            <Link href="/design-decisions" className="btn btn-secondary" style={{ height: 46, padding: '0 22px' }}>
+              Read Design Decisions
             </Link>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </section>
+
     </div>
   )
 }
