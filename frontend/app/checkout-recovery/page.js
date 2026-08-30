@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import StatusBadge from '@/components/StatusBadge'
 import { MOCK_CHECKOUT_EVENTS } from '@/lib/merchantData'
+import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import {
   ShoppingCart,
   TrendingUp,
@@ -10,6 +12,8 @@ import {
   MessageCircle,
   Mail,
   Smartphone,
+  Send,
+  X,
 } from 'lucide-react'
 
 const fmtINR = (n) =>
@@ -27,6 +31,12 @@ export default function CheckoutRecoveryPage() {
   const [discountPct, setDiscountPct] = useState(5)
   const [activeChannel, setActiveChannel] = useState('whatsapp')
 
+  // Loading & Result States
+  const [loadingEvent, setLoadingEvent] = useState(null)
+  const [loadingSeconds, setLoadingSeconds] = useState(0)
+  const [loadingError, setLoadingError] = useState(null)
+  const [recoveryModal, setRecoveryModal] = useState(null)
+
   useEffect(() => {
     fetch('/api/checkout-abandonment/events')
       .then((r) => {
@@ -41,11 +51,102 @@ export default function CheckoutRecoveryPage() {
       .catch(() => {})
   }, [])
 
+  // Timer for tracking request in-flight duration
+  useEffect(() => {
+    if (!loadingEvent || loadingError) return
+    const timer = setInterval(() => {
+      setLoadingSeconds((prev) => prev + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [loadingEvent, loadingError])
+
   const totalCarts = events.length
   const totalAbandonedValue = events.reduce((acc, c) => acc + (c.cart_value || 0), 0)
   const recoveredValue = events.reduce((acc, c) => acc + (c.recovered_amount || 0), 0)
   const recoveredCount = events.filter((c) => c.status === 'recovered').length
   const convRate = totalCarts > 0 ? (recoveredCount / totalCarts) * 100 : 0
+
+  const handleTriggerRecovery = async (event) => {
+    if (!event || !event.checkout_id) return
+
+    setLoadingEvent(event)
+    setLoadingSeconds(0)
+    setLoadingError(null)
+    setSelectedEvent(event)
+
+    const currentNudges = event.nudge_count || 1
+    const nextNudge = currentNudges + 1
+    const isTerminal = nextNudge >= 3
+
+    try {
+      const res = await fetch('/api/checkout-abandonment/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkout_id: event.checkout_id,
+          customer_name: event.customer_name || 'Customer',
+          customer_email: event.customer_email || 'customer@example.com',
+          customer_phone: event.customer_phone || '+91 98000 00000',
+          cart_value: event.cart_value || 0,
+          items: Array.isArray(event.items) ? event.items : [],
+          abandoned_at_minutes_ago: event.abandoned_at_minutes_ago || 15,
+          abandonment_stage: event.abandonment_stage || 'payment_step',
+          recovery_channel: activeChannel,
+          discount_offered_pct: discountPct,
+          recovery_link: event.recovery_link || `https://pay.rzp.io/${event.checkout_id}`,
+          nudge_count: nextNudge,
+          max_nudges: 3,
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error(`Upstream server returned HTTP ${res.status}`)
+      }
+
+      const data = await res.json()
+      const finalResult = {
+        ...data,
+        nudge_count: data.nudge_count || nextNudge,
+        isTerminal: Boolean(data.is_terminal || isTerminal || data.status === 'expired'),
+        status: data.status || (isTerminal ? 'expired' : 'recovered'),
+      }
+
+      const isExp = Boolean(finalResult.is_terminal || finalResult.status === 'expired' || isTerminal)
+      const updatedStatus = isExp ? 'expired' : 'recovered'
+      const updatedNudge = finalResult.nudge_count || nextNudge
+
+      setLoadingEvent(null)
+      setRecoveryModal(finalResult)
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.checkout_id === event.checkout_id
+            ? {
+                ...e,
+                status: updatedStatus,
+                nudge_count: updatedNudge,
+                recovered_amount: finalResult.projected_recovery_value ?? e.cart_value,
+                recovery_channel: activeChannel,
+                discount_offered_pct: discountPct,
+              }
+            : e
+        )
+      )
+      setSelectedEvent((prev) =>
+        prev && prev.checkout_id === event.checkout_id
+          ? {
+              ...prev,
+              status: updatedStatus,
+              nudge_count: updatedNudge,
+              recovered_amount: finalResult.projected_recovery_value ?? prev.cart_value,
+            }
+          : prev
+      )
+    } catch (err) {
+      setLoadingError({
+        message: err.message || 'Payment recovery service timed out or was unreachable.',
+      })
+    }
+  }
 
   return (
     <div className="page" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -167,13 +268,13 @@ export default function CheckoutRecoveryPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800 }}>Real-Time Abandoned Cart Stream</div>
-                <div className="text-muted text-xs">Click any customer row to preview omnichannel communication</div>
+                <div className="text-muted text-xs">Click any row to preview message · Dispatch re-engagement with 1 click</div>
               </div>
               <span className="badge badge--retrying">{events.length} ACTIVE CARTS</span>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left', minWidth: 560 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left', minWidth: 620 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface-el)', borderBottom: '1px solid var(--border)' }}>
                     <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Checkout ID</th>
@@ -181,7 +282,7 @@ export default function CheckoutRecoveryPage() {
                     <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Cart Value</th>
                     <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Exit Stage</th>
                     <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Status</th>
-                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)', textAlign: 'right' }}>Recovery Channel</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)', textAlign: 'right' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -204,6 +305,7 @@ export default function CheckoutRecoveryPage() {
                         </td>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{e.customer_name}</div>
+                          <div className="text-muted text-xs">{e.customer_email}</div>
                         </td>
                         <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-primary)' }}>
                           {fmtINR(e.cart_value)}
@@ -231,23 +333,24 @@ export default function CheckoutRecoveryPage() {
                           )}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              fontSize: 11.5,
-                              fontWeight: 600,
-                              color: 'var(--accent-bright)',
-                              background: 'rgba(82, 132, 255, 0.08)',
-                              padding: '4px 10px',
-                              borderRadius: 6,
-                              border: '1px solid rgba(82, 132, 255, 0.2)',
+                          <button
+                            className="btn btn-primary"
+                            disabled={e.status === 'expired'}
+                            onClick={(evt) => {
+                              evt.stopPropagation()
+                              handleTriggerRecovery(e)
                             }}
+                            style={{ height: 32, padding: '0 12px', fontSize: 11.5, gap: 5, marginLeft: 'auto' }}
+                            aria-label={`Trigger recovery for ${e.checkout_id}`}
                           >
-                            <ChannelIcon className="w-3.5 h-3.5" />
-                            {e.recovery_channel?.toUpperCase()}
-                          </span>
+                            {e.status === 'expired' ? (
+                              'Expired (3/3)'
+                            ) : (
+                              <>
+                                Re-engage <ChannelIcon className="w-3 h-3" />
+                              </>
+                            )}
+                          </button>
                         </td>
                       </tr>
                     )
@@ -308,6 +411,112 @@ export default function CheckoutRecoveryPage() {
           </div>
         </div>
       </div>
+
+      {/* ── 3D Vaulta Rotating Card Loader for In-Flight Re-engagement ── */}
+      {loadingEvent && (
+        <VaultaLoadingScreen
+          mode="modal"
+          title={`Re-engaging ${loadingEvent.customer_name}…`}
+          subtitles={[
+            'Synthesizing personalized omnichannel copy',
+            'Applying dynamic discount incentives',
+            'Generating 1-click tokenized checkout URL',
+            'Dispatching priority message gateway',
+          ]}
+          elapsedSeconds={loadingSeconds}
+          error={loadingError}
+          onRetry={() => handleTriggerRecovery(loadingEvent)}
+          onClose={() => {
+            setLoadingEvent(null)
+            setLoadingError(null)
+          }}
+        />
+      )}
+
+      {/* ── Success Intervention Result Modal ── */}
+      <AnimatePresence>
+        {recoveryModal && (
+          <>
+            <div className="drawer-overlay" style={{ zIndex: 1090 }} onClick={() => setRecoveryModal(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 'min(540px, 92vw)',
+                maxHeight: 'min(88vh, 620px)',
+                overflowY: 'auto',
+                background: 'var(--surface)',
+                border: '1px solid rgba(82, 132, 255, 0.35)',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-drawer), var(--shadow-glow)',
+                zIndex: 1100,
+                padding: '26px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                <div>
+                  <div className="eyebrow">
+                    <span className="eyebrow__dot" />{' '}
+                    {recoveryModal.status === 'expired' ? 'RECOVERY SEQUENCE TERMINATED' : 'RECOVERY DISPATCHED'}
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>
+                    {recoveryModal.status === 'expired'
+                      ? 'Maximum Nudges Reached (3/3 Expired)'
+                      : `Automated Cart Re-engagement Sent (Nudge ${recoveryModal.nudge_count || 1}/3)`}
+                  </div>
+                </div>
+                <button className="btn btn-icon" onClick={() => setRecoveryModal(null)} aria-label="Close recovery modal">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {recoveryModal.status === 'expired' ? (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-sm)', padding: 14, fontSize: 13, color: '#F59E0B', lineHeight: 1.5 }}>
+                    ⚖️ <strong>Bounded Stopping Rule:</strong> This customer cart has received the maximum 3 automated recovery nudges without checkout completion. Per anti-spam regulatory guardrails, further automated messaging is terminated.
+                  </div>
+                ) : (
+                  <div style={{ background: 'var(--surface-el)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+                      DISPATCHED COPY ({recoveryModal.intervention?.channel?.toUpperCase() || 'OMNICHANNEL'})
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)', fontStyle: 'italic' }}>
+                      "{recoveryModal.intervention?.copy || 'Recovery re-engagement initiated.'}"
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ background: 'var(--surface-el)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Projected Salvage Value</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-bright)', marginTop: 2 }}>
+                      {fmtINR(recoveryModal.projected_recovery_value || 0)}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--surface-el)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Conversion Probability</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: recoveryModal.status === 'expired' ? '#E07070' : '#22c55e', marginTop: 2 }}>
+                      {recoveryModal.status === 'expired' ? '0%' : `${((recoveryModal.projected_conversion_probability || 0.68) * 100).toFixed(0)}%`}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button className="btn btn-primary" onClick={() => setRecoveryModal(null)} style={{ height: 38 }}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

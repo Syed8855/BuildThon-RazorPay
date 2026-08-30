@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import StatusBadge from '@/components/StatusBadge'
 import { MOCK_INVOICES } from '@/lib/merchantData'
+import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import {
   FileText,
   Calendar,
@@ -12,7 +14,9 @@ import {
   TrendingUp,
   UserCheck,
   Scale,
+  ArrowRight,
   ShieldAlert,
+  X,
 } from 'lucide-react'
 
 const fmtINR = (n) =>
@@ -30,6 +34,12 @@ export default function ReceivablesPage() {
   const [invoices, setInvoices] = useState(MOCK_INVOICES)
   const [activeBucket, setActiveBucket] = useState('all')
 
+  // Loading & Result States
+  const [loadingInvoice, setLoadingInvoice] = useState(null)
+  const [loadingSeconds, setLoadingSeconds] = useState(0)
+  const [loadingError, setLoadingError] = useState(null)
+  const [chaserModal, setChaserModal] = useState(null)
+
   useEffect(() => {
     fetch('/api/receivables/invoices')
       .then((r) => r.json())
@@ -39,6 +49,15 @@ export default function ReceivablesPage() {
       .catch(() => {})
   }, [])
 
+  // Timer for in-flight duration
+  useEffect(() => {
+    if (!loadingInvoice || loadingError) return
+    const timer = setInterval(() => {
+      setLoadingSeconds((prev) => prev + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [loadingInvoice, loadingError])
+
   const totalAR = invoices.reduce((a, i) => a + i.amount, 0)
   const overdueAR = invoices.filter((i) => i.status !== 'recovered').reduce((a, i) => a + i.amount, 0)
   const legalCount = invoices.filter((i) => i.chaser_stage === 'stage_5_human_legal_escalation').length
@@ -47,6 +66,79 @@ export default function ReceivablesPage() {
     if (activeBucket === 'all') return true
     return i.aging_bucket === activeBucket
   })
+
+  const handleExecuteChaser = async (inv) => {
+    if (!inv || !inv.invoice_id) return
+
+    setLoadingInvoice(inv)
+    setLoadingSeconds(0)
+    setLoadingError(null)
+
+    const stages = [
+      'stage_1_gentle_reminder',
+      'stage_2_firm_followup',
+      'stage_3_urgent_notice',
+      'stage_4_account_hold',
+      'stage_5_human_legal_escalation',
+    ]
+    const currIdx = stages.indexOf(inv.chaser_stage)
+    const nextStage = stages[Math.min(currIdx + 1, stages.length - 1)]
+    const isTerminal = nextStage === 'stage_5_human_legal_escalation'
+
+    try {
+      const res = await fetch('/api/receivables/chase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoice_id: inv.invoice_id,
+          client_name: inv.client_name || 'Enterprise Client',
+          client_category: inv.client_category || 'Corporate',
+          amount: inv.amount || 0,
+          due_date: inv.due_date || '2026-08-30',
+          days_overdue: inv.days_overdue || 0,
+          aging_bucket: inv.aging_bucket || '0-30 days',
+          chaser_stage: inv.chaser_stage || 'stage_1_gentle_reminder',
+          last_action_timestamp: inv.last_action_timestamp || '2026-08-30 10:00',
+          next_action_due: inv.next_action_due || 'Pending',
+          status: inv.status || 'overdue',
+          disputed: Boolean(inv.disputed),
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error(`B2B Chaser engine returned HTTP ${res.status}`)
+      }
+
+      const data = await res.json()
+      const finalData = {
+        invoice_id: inv.invoice_id,
+        client_name: inv.client_name || 'Enterprise Client',
+        executed_stage: data.executed_stage || nextStage,
+        action_taken: data.action_taken || 'Autonomous multi-channel B2B chaser dispatched.',
+        timestamp: data.timestamp || new Date().toISOString(),
+        is_terminal_escalation: Boolean(data.is_terminal_escalation || isTerminal),
+      }
+
+      setLoadingInvoice(null)
+      setChaserModal(finalData)
+      setInvoices((prev) =>
+        prev.map((item) =>
+          item.invoice_id === inv.invoice_id
+            ? {
+                ...item,
+                chaser_stage: finalData.executed_stage,
+                last_action_timestamp: 'Just now',
+                status: finalData.is_terminal_escalation ? 'escalated_to_legal' : item.status,
+              }
+            : item
+        )
+      )
+    } catch (err) {
+      setLoadingError({
+        message: err.message || 'B2B Receivables chaser service timed out or was unreachable.',
+      })
+    }
+  }
 
   return (
     <div className="page" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -144,7 +236,7 @@ export default function ReceivablesPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>B2B Aging Ledger & Accounts Roster</div>
-              <div className="text-muted text-xs">Real-time status of all accounts receivable and automated follow-up cadences</div>
+              <div className="text-muted text-xs">Real-time status of all accounts receivable · Advance stages with autonomous verification</div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -186,7 +278,7 @@ export default function ReceivablesPage() {
                   <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Due Date & Overdue</th>
                   <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Aging Bucket</th>
                   <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Current Chaser Stage</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)', textAlign: 'right' }}>Follow-up Schedule</th>
+                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)', textAlign: 'right' }}>Autonomous Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,19 +341,22 @@ export default function ReceivablesPage() {
                         <div className="text-muted text-xs" style={{ marginTop: 2 }}>{stageInfo.desc}</div>
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        <span
-                          style={{
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            color: isTerminal ? '#F59E0B' : 'var(--text-secondary)',
-                            background: 'rgba(255,255,255,0.04)',
-                            padding: '4px 10px',
-                            borderRadius: 6,
-                            border: '1px solid rgba(255,255,255,0.08)',
-                          }}
+                        <button
+                          className={isTerminal ? 'btn btn-secondary' : 'btn btn-primary'}
+                          onClick={() => handleExecuteChaser(inv)}
+                          style={{ height: 34, padding: '0 14px', fontSize: 12, gap: 6, marginLeft: 'auto' }}
+                          aria-label={`Execute chaser stage for ${inv.invoice_id}`}
                         >
-                          {inv.next_action_due || 'Automated Schedule Active'}
-                        </span>
+                          {isTerminal ? (
+                            <>
+                              View Legal Dossier <Scale className="w-3.5 h-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              Advance Stage <ArrowRight className="w-3.5 h-3.5" />
+                            </>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   )
@@ -271,6 +366,92 @@ export default function ReceivablesPage() {
           </div>
         </div>
       </div>
+
+      {/* ── 3D Vaulta Rotating Card Loader for In-Flight Chaser ── */}
+      {loadingInvoice && (
+        <VaultaLoadingScreen
+          mode="modal"
+          title={`Advancing Stage for ${loadingInvoice.client_name}…`}
+          subtitles={[
+            'Verifying accounts payable ledger',
+            'Composing multi-channel reminder dispatch',
+            'Applying B2B payment grace terms',
+            'Executing bounded state transition',
+          ]}
+          elapsedSeconds={loadingSeconds}
+          error={loadingError}
+          onRetry={() => handleExecuteChaser(loadingInvoice)}
+          onClose={() => {
+            setLoadingInvoice(null)
+            setLoadingError(null)
+          }}
+        />
+      )}
+
+      {/* ── Chaser Execution Feedback Modal ── */}
+      <AnimatePresence>
+        {chaserModal && (
+          <>
+            <div className="drawer-overlay" style={{ zIndex: 1090 }} onClick={() => setChaserModal(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
+              style={{
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 'min(520px, 92vw)',
+                maxHeight: 'min(88vh, 600px)',
+                overflowY: 'auto',
+                background: 'var(--surface)',
+                border: '1px solid rgba(82, 132, 255, 0.35)',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-drawer), var(--shadow-glow)',
+                zIndex: 1100,
+                padding: '26px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <div className="eyebrow"><span className="eyebrow__dot" /> CHASER STAGE ADVANCED</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>
+                    {chaserModal.client_name || 'Enterprise Client'}
+                  </div>
+                </div>
+                <button className="btn btn-icon" onClick={() => setChaserModal(null)} aria-label="Close chaser modal">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ background: 'var(--surface-el)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    ACTIVE STAGE: {(STAGE_LABELS[chaserModal.executed_stage] || STAGE_LABELS.stage_1_gentle_reminder)?.label?.toUpperCase() || 'STAGE ADVANCED'}
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)' }}>
+                    {chaserModal.action_taken || 'Autonomous chaser action executed.'}
+                  </div>
+                </div>
+
+                {chaserModal.is_terminal_escalation && (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-sm)', padding: 12, fontSize: 12, color: '#F59E0B' }}>
+                    ⚖️ Bounded Stopping Rule: Maximum automated chaser sequence reached. Account has been halted and transitioned to human legal counsel.
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button className="btn btn-primary" onClick={() => setChaserModal(null)} style={{ height: 38 }} aria-label="Acknowledge and close modal">
+                    Acknowledge & Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
