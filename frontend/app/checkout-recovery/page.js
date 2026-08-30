@@ -169,7 +169,7 @@ export default function CheckoutRecoveryPage() {
         </div>
 
         {/* Top KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
+        <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
           <div className="metric-card">
             <div className="metric-card__hdr">
               <span className="metric-card__label">Recovered Cart Revenue</span>
@@ -203,10 +203,10 @@ export default function CheckoutRecoveryPage() {
         </div>
 
         {/* Omnichannel Dispatch Controller Configuration */}
-        <div className="card card--padded" style={{ marginBottom: 24, padding: '18px 24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+        <div className="card card--padded" style={{ marginBottom: 24, padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
                 Channel Protocol:
               </span>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -235,8 +235,8 @@ export default function CheckoutRecoveryPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
                 Offer Incentive:
               </span>
               {[0, 5, 10, 15].map((d) => (
@@ -244,7 +244,7 @@ export default function CheckoutRecoveryPage() {
                   key={d}
                   onClick={() => setDiscountPct(d)}
                   style={{
-                    padding: '3px 8px',
+                    padding: '4px 10px',
                     borderRadius: 4,
                     border: 'none',
                     background: discountPct === d ? 'var(--accent-bright)' : 'rgba(255,255,255,0.06)',
@@ -262,7 +262,7 @@ export default function CheckoutRecoveryPage() {
         </div>
 
         {/* Dual-Pane Workbench */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }}>
+        <div className="workbench-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }}>
           {/* Abandoned Cart Feed Table */}
           <div className="card card--padded">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

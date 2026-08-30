@@ -328,14 +328,17 @@ export default function PlaygroundPage() {
   }
 
   const runBatchSimulation = async () => {
+    setShowVaulta(true)
     setBatchLoading(true)
+    setBatchSeconds(0)
+    setBatchError(null)
     setBatchResult(null)
-    setBatchProgress(10)
+    setBatchProgress(15)
     playScanSound()
 
     const pInterval = setInterval(() => {
-      setBatchProgress((p) => (p < 90 ? p + 18 : p))
-    }, 300)
+      setBatchProgress((p) => (p < 90 ? p + 15 : p))
+    }, 250)
 
     try {
       const res = await fetch('/api/batch-simulate', {
@@ -343,6 +346,9 @@ export default function PlaygroundPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ batch_size: batchSize }),
       })
+      if (!res.ok) {
+        throw new Error(`Batch engine returned HTTP ${res.status}`)
+      }
       const data = await res.json()
       clearInterval(pInterval)
       setBatchProgress(100)
@@ -350,48 +356,12 @@ export default function PlaygroundPage() {
         setBatchResult(data)
         setBatchLoading(false)
         playSuccessSound()
-      }, 400)
-    } catch {
+      }, 300)
+    } catch (err) {
       clearInterval(pInterval)
-      // Fallback mock batch calculation
-      const fakeTotal = batchSize * 3250
-      const rulesRec = fakeTotal * 0.68
-      const mlRec = fakeTotal * 0.864
-      const mockBatch = {
-        batch_size: batchSize,
-        total_attempted_amount: fakeTotal,
-        rules_recovered_amount: rulesRec,
-        ml_recovered_amount: mlRec,
-        rules_recovery_rate: 0.68,
-        ml_recovery_rate: 0.864,
-        uplift_percentage: 18.4,
-        counts: {
-          recovered: Math.round(batchSize * 0.84),
-          hard_failed: Math.round(batchSize * 0.06),
-          escalated_to_human: Math.round(batchSize * 0.05),
-          churned: Math.round(batchSize * 0.03),
-          dnd_blocked: Math.round(batchSize * 0.02),
-          quiet_hours_held: 2,
-        },
-        records: Array.from({ length: Math.min(batchSize, 25) }, (_, i) => ({
-          transaction_id: `txn_batch_${1000 + i}`,
-          amount: Math.round(500 + Math.random() * 8000),
-          failure_reason: FAILURE_REASONS[i % FAILURE_REASONS.length],
-          payment_method: METHODS[i % METHODS.length],
-          rules_action: 'retry_now',
-          ml_action: i % 8 === 0 ? 'escalate_human' : i % 11 === 0 ? 'no_retry' : 'retry_now',
-          ml_probability: 0.45 + (i % 5) * 0.12,
-          status: i % 8 === 0 ? 'escalated_to_human' : i % 11 === 0 ? 'dnd_blocked' : 'recovered',
-          compliance_status: i % 8 === 0 ? 'escalated_to_human' : i % 11 === 0 ? 'dnd_restricted' : 'compliant',
-          plain_english: 'Autonomous ML orchestration decision evaluated cleanly.',
-        })),
-      }
-      setBatchProgress(100)
-      setTimeout(() => {
-        setBatchResult(mockBatch)
-        setBatchLoading(false)
-        playSuccessSound()
-      }, 400)
+      setBatchError({
+        message: err.message || 'Batch simulation service timed out or was unreachable.',
+      })
     }
   }
 
@@ -905,6 +875,27 @@ export default function PlaygroundPage() {
           </div>
         )}
       </div>
+
+      {/* ── 3D Vaulta Rotating Card Loader for Batch Simulation ── */}
+      {batchLoading && (
+        <VaultaLoadingScreen
+          mode="modal"
+          title={`Running Batch Simulation for ${batchSize} Transactions…`}
+          subtitles={[
+            'Sampling representative merchant transactions',
+            'Applying DND and hard-fail compliance rules',
+            'Evaluating XGBoost retry confidence scores',
+            'Computing rules baseline vs ML financial uplift',
+          ]}
+          elapsedSeconds={batchSeconds}
+          error={batchError}
+          onRetry={runBatchSimulation}
+          onClose={() => {
+            setBatchLoading(false)
+            setBatchError(null)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -104,6 +104,7 @@ class ModelWrapper:
         customer_segment: str = "returning",
         historical_failure_rate: float = 0.15,
         now=None,
+        compute_shap: bool = True,
     ) -> Dict[str, Any]:
         """
         predict_fn interface for orchestrator.py.
@@ -142,20 +143,22 @@ class ModelWrapper:
         # Probability
         prob = float(self.model.predict_proba(X)[0, 1])
 
-        # SHAP -- top 4 features per MODEL_SPEC.md
-        shap_vals = self._explainer.shap_values(X)
-        if isinstance(shap_vals, list):
-            shap_vals = shap_vals[1]
-        sv = shap_vals[0]  # shape: (n_features,)
+        contributions = []
+        if compute_shap:
+            # SHAP -- top 4 features per MODEL_SPEC.md
+            shap_vals = self._explainer.shap_values(X)
+            if isinstance(shap_vals, list):
+                shap_vals = shap_vals[1]
+            sv = shap_vals[0]  # shape: (n_features,)
 
-        top_idx = np.argsort(np.abs(sv))[::-1][:4]
-        contributions = [
-            {
-                "feature": self.feature_cols[i],
-                "impact": round(float(sv[i]), 4),
-            }
-            for i in top_idx
-        ]
+            top_idx = np.argsort(np.abs(sv))[::-1][:4]
+            contributions = [
+                {
+                    "feature": self.feature_cols[i],
+                    "impact": round(float(sv[i]), 4),
+                }
+                for i in top_idx
+            ]
 
         return {
             "success_probability": round(prob, 4),
