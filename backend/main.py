@@ -896,13 +896,35 @@ def get_checkout_events():
 
 @app.post("/checkout-abandonment/simulate")
 def simulate_checkout_recovery(req: CheckoutAbandonmentEvent):
-    """Trigger automated recovery sequence for an abandoned cart."""
+    """Trigger automated recovery sequence for an abandoned cart with bounded 3-nudge cap."""
+    max_nudges = req.max_nudges or 3
+    current_nudges = req.nudge_count or 1
+
+    # Bounded 3-nudge workflow enforcement
+    if current_nudges > max_nudges or req.status == "expired":
+        return {
+            "checkout_id": req.checkout_id,
+            "status": "expired",
+            "is_terminal": True,
+            "nudge_count": current_nudges,
+            "max_nudges": max_nudges,
+            "message": f"Maximum re-engagement limit reached ({max_nudges}/{max_nudges} nudges). Recovery sequence terminated.",
+            "intervention": None,
+            "projected_recovery_value": 0.0,
+            "projected_conversion_probability": 0.0,
+        }
+
     discount = req.discount_offered_pct
     link = f"https://pay.rzp.io/{req.checkout_id}?rec={req.recovery_channel[:2]}{discount}"
     rec_val = round(req.cart_value * (1 - discount / 100), 2)
+    is_terminal = current_nudges >= max_nudges
 
     return {
         "checkout_id": req.checkout_id,
+        "status": "expired" if is_terminal else "recovered",
+        "is_terminal": is_terminal,
+        "nudge_count": current_nudges,
+        "max_nudges": max_nudges,
         "intervention": {
             "channel": req.recovery_channel,
             "scheduled_after_minutes": 15,
