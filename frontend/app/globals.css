@@ -134,7 +134,7 @@ button { font-family: var(--font); }
 
 /* ─── Nav ────────────────────────────────────────────────────── */
 .nav {
-  position: sticky; top: 0; z-index: 1000;
+  position: sticky; top: 0; z-index: 90;
   height: 64px;
   display: flex; align-items: center;
   padding: 0 36px; gap: 32px;
@@ -389,7 +389,7 @@ button { font-family: var(--font); }
 .drawer-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,4,0.72); backdrop-filter: blur(8px);
-  z-index: 300; animation: fdIn 220ms var(--ease-out);
+  z-index: 1000; animation: fdIn 220ms var(--ease-out);
 }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0;
@@ -397,7 +397,7 @@ button { font-family: var(--font); }
   background: var(--surface);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-drawer);
-  z-index: 301; overflow-y: auto;
+  z-index: 1010; overflow-y: auto;
   animation: slideIn 280ms var(--ease-out);
   display: flex; flex-direction: column;
 }

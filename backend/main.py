@@ -150,17 +150,18 @@ class CheckoutAbandonmentEvent(BaseModel):
 
 
 class InvoiceRecord(BaseModel):
+    model_config = {"extra": "allow"}
     invoice_id: str
-    client_name: str
-    client_category: str
-    amount: float
-    due_date: str
-    days_overdue: int
-    aging_bucket: str
-    chaser_stage: str
-    last_action_timestamp: str
-    next_action_due: str
-    status: str
+    client_name: str = "Enterprise Client"
+    client_category: str = "Corporate"
+    amount: float = 0.0
+    due_date: str = "2026-08-30"
+    days_overdue: int = 0
+    aging_bucket: str = "0-30 days"
+    chaser_stage: str = "stage_1_gentle_reminder"
+    last_action_timestamp: Optional[str] = None
+    next_action_due: Optional[str] = None
+    status: str = "overdue"
     disputed: bool = False
 
 
@@ -1072,11 +1073,15 @@ def get_receivables_invoices():
 
 
 @app.post("/receivables/chase")
-def execute_receivables_chase(req: InvoiceRecord):
+def execute_receivables_chase(req: Dict[str, Any]):
     """
     Executes the next stage bounded B2B chaser action:
     Gentle Reminder -> Firm Follow-up -> Urgent Notice -> Account Hold -> Legal/Human Escalation.
     """
+    invoice_id = req.get("invoice_id", "inv_unknown")
+    client_name = req.get("client_name", "Enterprise Client")
+    chaser_stage = req.get("chaser_stage", "stage_1_gentle_reminder")
+
     stages_order = [
         "stage_1_gentle_reminder",
         "stage_2_firm_followup",
@@ -1084,7 +1089,7 @@ def execute_receivables_chase(req: InvoiceRecord):
         "stage_4_account_hold",
         "stage_5_human_legal_escalation",
     ]
-    current_idx = stages_order.index(req.chaser_stage) if req.chaser_stage in stages_order else 0
+    current_idx = stages_order.index(chaser_stage) if chaser_stage in stages_order else 0
     next_idx = min(current_idx + 1, len(stages_order) - 1)
     next_stage = stages_order[next_idx]
 
@@ -1097,8 +1102,8 @@ def execute_receivables_chase(req: InvoiceRecord):
     }
 
     return {
-        "invoice_id": req.invoice_id,
-        "client_name": req.client_name,
+        "invoice_id": invoice_id,
+        "client_name": client_name,
         "executed_stage": next_stage,
         "action_taken": actions.get(next_stage, "Action executed"),
         "timestamp": datetime.utcnow().isoformat(),

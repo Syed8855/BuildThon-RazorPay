@@ -514,7 +514,7 @@ export default function CheckoutRecoveryPage() {
       <AnimatePresence>
         {recoveryModal && (
           <>
-            <div className="drawer-overlay" onClick={() => setRecoveryModal(null)} />
+            <div className="drawer-overlay" style={{ zIndex: 1090 }} onClick={() => setRecoveryModal(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -526,19 +526,26 @@ export default function CheckoutRecoveryPage() {
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
                 width: 'min(540px, 92vw)',
+                maxHeight: 'min(88vh, 620px)',
+                overflowY: 'auto',
                 background: 'var(--surface)',
                 border: '1px solid rgba(82, 132, 255, 0.35)',
                 borderRadius: 'var(--radius-xl)',
                 boxShadow: 'var(--shadow-drawer), var(--shadow-glow)',
-                zIndex: 400,
+                zIndex: 1100,
                 padding: '26px',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                 <div>
-                  <div className="eyebrow"><span className="eyebrow__dot" /> RECOVERY DISPATCHED</div>
+                  <div className="eyebrow">
+                    <span className="eyebrow__dot" />{' '}
+                    {recoveryModal.status === 'expired' ? 'RECOVERY SEQUENCE TERMINATED' : 'RECOVERY DISPATCHED'}
+                  </div>
                   <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>
-                    Automated Cart Re-engagement Sent (Nudge {recoveryModal.nudge_count || 1}/3)
+                    {recoveryModal.status === 'expired'
+                      ? 'Maximum Nudges Reached (3/3 Expired)'
+                      : `Automated Cart Re-engagement Sent (Nudge ${recoveryModal.nudge_count || 1}/3)`}
                   </div>
                 </div>
                 <button className="btn btn-icon" onClick={() => setRecoveryModal(null)} aria-label="Close recovery modal">
@@ -547,26 +554,32 @@ export default function CheckoutRecoveryPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: 'var(--surface-el)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
-                    DISPATCHED COPY ({recoveryModal.intervention?.channel?.toUpperCase()})
+                {recoveryModal.status === 'expired' ? (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-sm)', padding: 14, fontSize: 13, color: '#F59E0B', lineHeight: 1.5 }}>
+                    ⚖️ <strong>Bounded Stopping Rule:</strong> This customer cart has received the maximum 3 automated recovery nudges without checkout completion. Per anti-spam regulatory guardrails, further automated messaging is terminated.
                   </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)', fontStyle: 'italic' }}>
-                    "{recoveryModal.intervention?.copy}"
+                ) : (
+                  <div style={{ background: 'var(--surface-el)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+                      DISPATCHED COPY ({recoveryModal.intervention?.channel?.toUpperCase() || 'OMNICHANNEL'})
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)', fontStyle: 'italic' }}>
+                      "{recoveryModal.intervention?.copy || 'Recovery re-engagement initiated.'}"
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div style={{ background: 'var(--surface-el)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Projected Salvage Value</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-bright)', marginTop: 2 }}>
-                      {fmtINR(recoveryModal.projected_recovery_value)}
+                      {fmtINR(recoveryModal.projected_recovery_value || 0)}
                     </div>
                   </div>
                   <div style={{ background: 'var(--surface-el)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Conversion Probability</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#22c55e', marginTop: 2 }}>
-                      {((recoveryModal.projected_conversion_probability || 0.68) * 100).toFixed(0)}%
+                    <div style={{ fontSize: 16, fontWeight: 800, color: recoveryModal.status === 'expired' ? '#E07070' : '#22c55e', marginTop: 2 }}>
+                      {recoveryModal.status === 'expired' ? '0%' : `${((recoveryModal.projected_conversion_probability || 0.68) * 100).toFixed(0)}%`}
                     </div>
                   </div>
                 </div>

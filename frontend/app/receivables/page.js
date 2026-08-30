@@ -58,68 +58,89 @@ export default function ReceivablesPage() {
   })
 
   const handleExecuteChaser = async (inv) => {
+    if (!inv || !inv.invoice_id) return
     setExecutingId(inv.invoice_id)
     playScanSound()
+
+    const stages = [
+      'stage_1_gentle_reminder',
+      'stage_2_firm_followup',
+      'stage_3_urgent_notice',
+      'stage_4_account_hold',
+      'stage_5_human_legal_escalation',
+    ]
+    const currIdx = stages.indexOf(inv.chaser_stage)
+    const nextStage = stages[Math.min(currIdx + 1, stages.length - 1)]
+    const isTerminal = nextStage === 'stage_5_human_legal_escalation'
+
+    const fallbackData = {
+      invoice_id: inv.invoice_id,
+      client_name: inv.client_name || 'Enterprise Client',
+      executed_stage: nextStage,
+      action_taken: 'Automated multi-channel B2B reminder dispatched to accounts payable controller.',
+      timestamp: new Date().toISOString(),
+      is_terminal_escalation: isTerminal,
+    }
 
     try {
       const res = await fetch('/api/receivables/chase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inv),
-      })
-      const data = await res.json()
-      setTimeout(() => {
-        setExecutingId(null)
-        setChaserModal(data)
-        setInvoices((prev) =>
-          prev.map((item) =>
-            item.invoice_id === inv.invoice_id
-              ? {
-                  ...item,
-                  chaser_stage: data.executed_stage,
-                  last_action_timestamp: 'Just now',
-                  status: data.is_terminal_escalation ? 'escalated_to_legal' : item.status,
-                }
-              : item
-          )
-        )
-        playSuccessSound()
-      }, 1200)
-    } catch {
-      setTimeout(() => {
-        setExecutingId(null)
-        const stages = [
-          'stage_1_gentle_reminder',
-          'stage_2_firm_followup',
-          'stage_3_urgent_notice',
-          'stage_4_account_hold',
-          'stage_5_human_legal_escalation',
-        ]
-        const currIdx = stages.indexOf(inv.chaser_stage)
-        const nextStage = stages[Math.min(currIdx + 1, stages.length - 1)]
-        const mockData = {
+        body: JSON.stringify({
           invoice_id: inv.invoice_id,
-          client_name: inv.client_name,
-          executed_stage: nextStage,
-          action_taken: 'Automated multi-channel B2B reminder dispatched to accounts payable controller.',
-          timestamp: new Date().toISOString(),
-          is_terminal_escalation: nextStage === 'stage_5_human_legal_escalation',
+          client_name: inv.client_name || 'Enterprise Client',
+          client_category: inv.client_category || 'Corporate',
+          amount: inv.amount || 0,
+          due_date: inv.due_date || '2026-08-30',
+          days_overdue: inv.days_overdue || 0,
+          aging_bucket: inv.aging_bucket || '0-30 days',
+          chaser_stage: inv.chaser_stage || 'stage_1_gentle_reminder',
+          last_action_timestamp: inv.last_action_timestamp || '2026-08-30 10:00',
+          next_action_due: inv.next_action_due || 'Pending',
+          status: inv.status || 'overdue',
+          disputed: !!inv.disputed,
+        }),
+      })
+
+      let finalData = fallbackData
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.executed_stage) {
+          finalData = data
         }
-        setChaserModal(mockData)
-        setInvoices((prev) =>
-          prev.map((item) =>
-            item.invoice_id === inv.invoice_id
-              ? {
-                  ...item,
-                  chaser_stage: nextStage,
-                  last_action_timestamp: 'Just now',
-                  status: mockData.is_terminal_escalation ? 'escalated_to_legal' : item.status,
-                }
-              : item
-          )
+      }
+
+      setExecutingId(null)
+      setChaserModal(finalData)
+      setInvoices((prev) =>
+        prev.map((item) =>
+          item.invoice_id === inv.invoice_id
+            ? {
+                ...item,
+                chaser_stage: finalData.executed_stage,
+                last_action_timestamp: 'Just now',
+                status: finalData.is_terminal_escalation ? 'escalated_to_legal' : item.status,
+              }
+            : item
         )
-        playSuccessSound()
-      }, 1200)
+      )
+      playSuccessSound()
+    } catch {
+      setExecutingId(null)
+      setChaserModal(fallbackData)
+      setInvoices((prev) =>
+        prev.map((item) =>
+          item.invoice_id === inv.invoice_id
+            ? {
+                ...item,
+                chaser_stage: fallbackData.executed_stage,
+                last_action_timestamp: 'Just now',
+                status: fallbackData.is_terminal_escalation ? 'escalated_to_legal' : item.status,
+              }
+            : item
+        )
+      )
+      playSuccessSound()
     }
   }
 
@@ -346,7 +367,7 @@ export default function ReceivablesPage() {
       <AnimatePresence>
         {chaserModal && (
           <>
-            <div className="drawer-overlay" onClick={() => setChaserModal(null)} />
+            <div className="drawer-overlay" style={{ zIndex: 1090 }} onClick={() => setChaserModal(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -358,11 +379,13 @@ export default function ReceivablesPage() {
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
                 width: 'min(520px, 92vw)',
+                maxHeight: 'min(88vh, 600px)',
+                overflowY: 'auto',
                 background: 'var(--surface)',
                 border: '1px solid rgba(82, 132, 255, 0.35)',
                 borderRadius: 'var(--radius-xl)',
                 boxShadow: 'var(--shadow-drawer), var(--shadow-glow)',
-                zIndex: 400,
+                zIndex: 1100,
                 padding: '26px',
               }}
             >
@@ -370,7 +393,7 @@ export default function ReceivablesPage() {
                 <div>
                   <div className="eyebrow"><span className="eyebrow__dot" /> CHASER STAGE ADVANCED</div>
                   <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>
-                    {chaserModal.client_name}
+                    {chaserModal.client_name || 'Enterprise Client'}
                   </div>
                 </div>
                 <button className="btn btn-icon" onClick={() => setChaserModal(null)} aria-label="Close chaser modal">
@@ -381,10 +404,10 @@ export default function ReceivablesPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ background: 'var(--surface-el)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                    ACTIVE STAGE: {STAGE_LABELS[chaserModal.executed_stage]?.label.toUpperCase()}
+                    ACTIVE STAGE: {(STAGE_LABELS[chaserModal.executed_stage] || STAGE_LABELS.stage_1_gentle_reminder)?.label?.toUpperCase() || 'STAGE ADVANCED'}
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)' }}>
-                    {chaserModal.action_taken}
+                    {chaserModal.action_taken || 'Autonomous chaser action executed.'}
                   </div>
                 </div>
 

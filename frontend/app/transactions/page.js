@@ -56,7 +56,7 @@ function ReplayModal({ txn, onClose }) {
 
   return (
     <AnimatePresence>
-      <div className="drawer-overlay" onClick={onClose} />
+      <div className="drawer-overlay" style={{ zIndex: 1090 }} onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -68,11 +68,13 @@ function ReplayModal({ txn, onClose }) {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           width: 'min(580px, 92vw)',
+          maxHeight: 'min(88vh, 620px)',
+          overflowY: 'auto',
           background: 'var(--surface)',
           border: '1px solid rgba(82, 132, 255, 0.35)',
           borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--shadow-drawer), var(--shadow-glow)',
-          zIndex: 400,
+          zIndex: 1100,
           padding: '28px',
         }}
       >
