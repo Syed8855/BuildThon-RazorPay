@@ -7,7 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import StatusBadge from '@/components/StatusBadge'
 import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import { useBackend } from '@/context/BackendContext'
-import { REALISTIC_TRANSACTIONS } from '@/lib/merchantData'
+import { REALISTIC_TRANSACTIONS, MOCK_ANALYTICS_SUMMARY } from '@/lib/merchantData'
 import { exportSummaryCSV } from '@/lib/exportCsv'
 import { playSuccessSound } from '@/lib/soundEffects'
 import { ArrowRight, TrendingUp, DollarSign, Activity, AlertOctagon, Info, Calendar, Download, Radio, ShieldCheck, Zap, Sparkles, Building2 } from 'lucide-react'
@@ -45,10 +45,10 @@ const DarkTooltip = ({ active, payload, label }) => {
 
 export default function DashboardPage() {
   const { isReady: backendIsReady } = useBackend()
-  const [analytics, setAnalytics] = useState(null)
+  const [analytics, setAnalytics] = useState(MOCK_ANALYTICS_SUMMARY)
   const [txns, setTxns] = useState(REALISTIC_TRANSACTIONS)
-  const [dataLoaded, setDataLoaded] = useState(false)
-  const [showVaulta, setShowVaulta] = useState(true)
+  const [dataLoaded, setDataLoaded] = useState(true)
+  const [showVaulta, setShowVaulta] = useState(false)
   const [timeRange, setTimeRange] = useState('30D')
   const [activeKpiDetail, setActiveKpiDetail] = useState(null)
   const [liveStream, setLiveStream] = useState(false)
@@ -59,10 +59,13 @@ export default function DashboardPage() {
         if (!r.ok) throw r
         return r.json()
       })
-      setAnalytics(a)
+      if (a && a.funnel) {
+        setAnalytics(a)
+      }
       setDataLoaded(true)
     } catch {
-      setTimeout(loadData, 4000)
+      // Keep rich mock data as fallback
+      setDataLoaded(true)
     }
   }, [])
 

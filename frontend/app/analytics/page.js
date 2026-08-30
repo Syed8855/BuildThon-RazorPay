@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import VaultaLoadingScreen from '@/components/loading/VaultaLoadingScreen'
 import { useBackend } from '@/context/BackendContext'
+import { MOCK_ANALYTICS_SUMMARY } from '@/lib/merchantData'
 import { CreditCard, Smartphone, Landmark, Wallet, Filter, CheckCircle2, ChevronRight } from 'lucide-react'
 
 const ease = [0.22, 1, 0.36, 1]
@@ -51,22 +52,23 @@ const DarkTooltip = ({ active, payload, label }) => {
 
 export default function AnalyticsPage() {
   const { isReady: backendIsReady } = useBackend()
-  const [data, setData] = useState(null)
-  const [dataLoaded, setDataLoaded] = useState(false)
-  const [showVaulta, setShowVaulta] = useState(true)
+  const [data, setData] = useState(MOCK_ANALYTICS_SUMMARY)
+  const [dataLoaded, setDataLoaded] = useState(true)
+  const [showVaulta, setShowVaulta] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState('all')
   const [activeFunnelStage, setActiveFunnelStage] = useState(null)
 
   const loadAnalytics = useCallback(async () => {
     try {
-      const d = await fetch('/api/analytics').then((r) => {
-        if (!r.ok) throw r
-        return r.json()
-      })
-      setData(d)
+      const res = await fetch('/api/analytics')
+      if (!res.ok) throw new Error('API error')
+      const json = await res.json()
+      if (json && json.funnel) {
+        setData(json)
+      }
       setDataLoaded(true)
     } catch {
-      setTimeout(loadAnalytics, 4000)
+      setDataLoaded(true)
     }
   }, [])
 
