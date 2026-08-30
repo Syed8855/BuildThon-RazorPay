@@ -21,20 +21,6 @@ export default function HeroPage() {
   return (
     <div style={{ fontFamily: 'var(--font)', background: 'transparent', color: 'var(--text-primary)', position: 'relative', overflowX: 'hidden' }}>
       
-      {/* ── Background Grid & Beam Light Overlay ── */}
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-          backgroundSize: '64px 64px',
-          pointerEvents: 'none',
-          zIndex: 0,
-          maskImage: 'radial-gradient(ellipse 60% 50% at 50% 35%, black 40%, transparent 100%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 60% 50% at 50% 35%, black 40%, transparent 100%)',
-        }}
-      />
-
       {/* ── Fixed Centered 3D Card Layer ── */}
       <div
         style={{

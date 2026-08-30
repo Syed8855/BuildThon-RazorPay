@@ -284,7 +284,17 @@ if (isFrontFace) {
                            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.18), 0 12px 40px rgba(0,0,0,0.6)',
                          }}
                        >
-                         <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover rounded-[16px]" style={{ opacity: 1 }} />
+                         <video 
+                          src={videoSrc} 
+                          autoPlay 
+                          loop 
+                          muted 
+                          playsInline 
+                          preload="auto"
+                          poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='336' height='211' viewBox='0 0 336 211'%3E%3Crect fill='%230E101A' width='336' height='211'/%3E%3C/svg%3E"
+                          className="absolute inset-0 w-full h-full object-cover rounded-[16px]" 
+                          style={{ opacity: 1 }} 
+                        />
 
                          <div
                            className="absolute inset-0 text-white h-full w-full z-10"
@@ -324,7 +334,16 @@ if (isFrontFace) {
                       >
                         {/* Blurred video background */}
                         <div className="absolute inset-0 pointer-events-none" style={{ filter: 'blur(8px)', transform: 'scale(1.08)' }}>
-                          <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-70" />
+                          <video 
+                            src={videoSrc} 
+                            autoPlay 
+                            loop 
+                            muted 
+                            playsInline 
+                            preload="auto"
+                            poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='336' height='211' viewBox='0 0 336 211'%3E%3Crect fill='%230E101A' width='336' height='211'/%3E%3C/svg%3E"
+                            className="absolute inset-0 w-full h-full object-cover opacity-70" 
+                          />
                         </div>
 
                         {/* Magnetic Stripe */}
