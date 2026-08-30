@@ -659,14 +659,46 @@ export default function PlaygroundPage() {
                   {loading && (
                     <motion.div
                       key="loading"
-                      className="card card--padded state-loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
+                      className="card card--padded"
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      style={{
+                        textAlign: 'center',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        padding: '24px 16px',
+                        border: '1px solid rgba(82, 132, 255, 0.35)',
+                      }}
                     >
-                      <div style={{ fontSize: 32 }}>⚙️</div>
-                      <div className="state-loading__title">{stageMessage || 'Evaluating Rules & XGBoost Model…'}</div>
-                      <div className="state-loading__bar" />
+                      {/* Ambient Radial Glow */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: -30,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 320,
+                          height: 160,
+                          borderRadius: '50%',
+                          background: 'radial-gradient(circle, rgba(82, 132, 255, 0.22) 0%, transparent 70%)',
+                          pointerEvents: 'none',
+                        }}
+                      />
+
+                      {/* 3D Rotating Razorpay Smart Card Canvas */}
+                      <div style={{ width: '100%', height: 160, position: 'relative', zIndex: 1, pointerEvents: 'none', margin: '-8px 0 4px 0' }}>
+                        <VaultaLoadingScene isReady={false} />
+                      </div>
+
+                      <div style={{ position: 'relative', zIndex: 2 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF', marginBottom: 4 }}>
+                          {stageMessage || 'Evaluating Rules & XGBoost Model…'}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#737A8C' }}>
+                          Synthesizing transaction vector, calculating SHAP feature contributions, and applying guardrails
+                        </div>
+                      </div>
                     </motion.div>
                   )}
                   {result && !loading && (
@@ -734,26 +766,60 @@ export default function PlaygroundPage() {
               </div>
             </div>
 
-            {/* Progress Bar when running */}
+            {/* 3D Rotating Card Loading Area when Batch is Running */}
             {batchLoading && (
-              <div className="card card--padded" style={{ textAlign: 'center', padding: '32px 24px' }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>
-                  Orchestrating {batchSize} Failed Transactions in Parallel…
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="card card--padded"
+                style={{
+                  textAlign: 'center',
+                  padding: '28px 24px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  border: '1px solid rgba(82, 132, 255, 0.35)',
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: -40,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 400,
+                    height: 200,
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(82, 132, 255, 0.25) 0%, transparent 70%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+
+                {/* 3D Card Animation */}
+                <div style={{ width: '100%', height: 180, position: 'relative', zIndex: 1, pointerEvents: 'none', margin: '-10px 0 8px 0' }}>
+                  <VaultaLoadingScene isReady={false} />
                 </div>
-                <div style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${batchProgress}%`,
-                      background: 'linear-gradient(90deg, #315CFF 0%, #F2B705 100%)',
-                      transition: 'width 200ms ease',
-                    }}
-                  />
+
+                <div style={{ position: 'relative', zIndex: 2, maxWidth: 520, margin: '0 auto' }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', marginBottom: 6 }}>
+                    Orchestrating {batchSize} Failed Transactions in Parallel… ({batchProgress}%)
+                  </div>
+
+                  <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden', margin: '12px 0 10px 0' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${batchProgress}%`,
+                        background: 'linear-gradient(90deg, #315CFF 0%, #5284FF 50%, #F2B705 100%)',
+                        transition: 'width 250ms ease',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Evaluating XGBoost inference vectors, checking DND & quiet-hours regulatory guardrails, and calculating portfolio financial uplift.
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                  Calculating XGBoost inference, applying quiet hours windows, checking DND registers & human escalations
-                </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Batch Aggregate Results Panel */}
