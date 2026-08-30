@@ -168,15 +168,15 @@ export default function CardCarousel() {
         const targetY = cardH + gap
         y = -sign * (easedT * targetY)
         z = 400 + easedT * (220 - 400)
-        rot = easedT * 132
+        rot = easedT * 100
       } else if (absOffset <= 2) {
         const t = absOffset - 1
         const easedT = t * t * (3 - 2 * t)
         const yStart = cardH + gap
         const zStart = 220
-        const rotStart = 132
+        const rotStart = 100
         const zEnd = -60
-        const rotEnd = 175
+        const rotEnd = 140
         const sEnd = D / (D - zEnd)
         const yEnd = (h / 2 - peekAmount) / sEnd - (cardH / 2)
         const currentY = yStart + easedT * (yEnd - yStart)
@@ -187,9 +187,9 @@ export default function CardCarousel() {
         const t = Math.min(absOffset - 2, 1)
         const easedT = t * t * (3 - 2 * t)
         const zStart = -60
-        const rotStart = 175
+        const rotStart = 140
         const zEnd3 = -250
-        const rotEnd3 = 195
+        const rotEnd3 = 160
         const sEnd2 = D / (D - zStart)
         const yEnd2 = (h / 2 - peekAmount) / sEnd2 - (cardH / 2)
         const sEnd3 = D / (D - zEnd3)
@@ -272,24 +272,24 @@ export default function CardCarousel() {
                     )
                   }
 
-                  if (isFrontFace) {
-                    return (
-                      <div
-                        key={layerIdx}
-                        className="absolute inset-0 rounded-[16px] border border-white/15 pointer-events-none overflow-hidden"
-                        style={{
-                          background: gradient,
-                          transform: `translateZ(${zOffset}px)`,
-                          backfaceVisibility: 'hidden',
-                          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.18), 0 12px 40px rgba(0,0,0,0.6)',
-                        }}
-                      >
-                        <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover rounded-[16px]" style={{ opacity: 1 }} />
+if (isFrontFace) {
+                     return (
+                       <div
+                         key={layerIdx}
+                         className="absolute inset-0 rounded-[16px] border border-white/15 pointer-events-none overflow-hidden"
+                         style={{
+                           background: gradient,
+                           transform: `translateZ(${zOffset}px)`,
+                           backfaceVisibility: 'hidden',
+                           boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.18), 0 12px 40px rgba(0,0,0,0.6)',
+                         }}
+                       >
+                         <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover rounded-[16px]" style={{ opacity: 1 }} />
 
-                        <div
-                          className="absolute inset-0 text-white h-full w-full z-10"
-                          style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.35) 100%)' }}
-                        >
+                         <div
+                           className="absolute inset-0 text-white h-full w-full z-10"
+                           style={{ background: 'transparent' }}
+                         >
                           {/* Metallic Contact Chip */}
                           <div className="absolute" style={{ left: 20, top: '50%', transform: 'translateY(-50%)' }}>
                             <MetallicChip index={i} />
@@ -323,8 +323,8 @@ export default function CardCarousel() {
                         }}
                       >
                         {/* Blurred video background */}
-                        <div className="absolute inset-0 pointer-events-none" style={{ filter: 'blur(16px)', transform: 'scale(1.15)' }}>
-                          <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                        <div className="absolute inset-0 pointer-events-none" style={{ filter: 'blur(8px)', transform: 'scale(1.08)' }}>
+                          <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-70" />
                         </div>
 
                         {/* Magnetic Stripe */}
