@@ -145,14 +145,19 @@ export default function CheckoutRecoveryPage() {
       let finalResult = fallbackResult
       if (res.ok) {
         const data = await res.json()
-        if (data && data.intervention) {
+        if (data) {
           finalResult = {
             ...data,
-            nudge_count: nextNudge,
-            isTerminal,
+            nudge_count: data.nudge_count || nextNudge,
+            isTerminal: Boolean(data.is_terminal || isTerminal || data.status === 'expired'),
+            status: data.status || (isTerminal ? 'expired' : 'recovered'),
           }
         }
       }
+
+      const isExp = Boolean(finalResult.is_terminal || finalResult.status === 'expired' || isTerminal)
+      const updatedStatus = isExp ? 'expired' : 'recovered'
+      const updatedNudge = finalResult.nudge_count || nextNudge
 
       setSimulatingId(null)
       setRecoveryModal(finalResult)
@@ -161,14 +166,24 @@ export default function CheckoutRecoveryPage() {
           e.checkout_id === event.checkout_id
             ? {
                 ...e,
-                status: isTerminal ? 'expired' : 'recovered',
-                nudge_count: nextNudge,
-                recovered_amount: finalResult.projected_recovery_value || e.cart_value,
+                status: updatedStatus,
+                nudge_count: updatedNudge,
+                recovered_amount: finalResult.projected_recovery_value ?? e.cart_value,
                 recovery_channel: activeChannel,
                 discount_offered_pct: discountPct,
               }
             : e
         )
+      )
+      setSelectedEvent((prev) =>
+        prev && prev.checkout_id === event.checkout_id
+          ? {
+              ...prev,
+              status: updatedStatus,
+              nudge_count: updatedNudge,
+              recovered_amount: finalResult.projected_recovery_value ?? prev.cart_value,
+            }
+          : prev
       )
       playSuccessSound()
     } catch {
@@ -187,6 +202,16 @@ export default function CheckoutRecoveryPage() {
               }
             : e
         )
+      )
+      setSelectedEvent((prev) =>
+        prev && prev.checkout_id === event.checkout_id
+          ? {
+              ...prev,
+              status: isTerminal ? 'expired' : 'recovered',
+              nudge_count: nextNudge,
+              recovered_amount: fallbackResult.projected_recovery_value,
+            }
+          : prev
       )
       playSuccessSound()
     }
