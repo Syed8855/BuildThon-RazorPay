@@ -263,99 +263,160 @@ export default function CheckoutRecoveryPage() {
           </div>
         </div>
 
-        {/* Abandoned Cart Feed Table */}
-        <div className="card card--padded">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Real-Time Abandoned Cart Stream</div>
-              <div className="text-muted text-xs">Customer exit sessions captured by Razorpay Checkout SDK</div>
+        {/* Dual-Pane Workbench: Stream + Smartphone Simulator */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }}>
+          {/* Abandoned Cart Feed Table */}
+          <div className="card card--padded">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>Real-Time Abandoned Cart Stream</div>
+                <div className="text-muted text-xs">Customer exit sessions captured by Razorpay Checkout SDK</div>
+              </div>
+              <span className="badge badge--retrying">{events.length} ACTIVE CARTS</span>
             </div>
-            <span className="badge badge--retrying">{events.length} ACTIVE CARTS</span>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left', minWidth: 620 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface-el)', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Checkout ID</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Customer</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Cart Value</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Stage</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Status</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-muted)', textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((e) => {
+                    const ChannelIcon = CHANNEL_ICONS[e.recovery_channel] || MessageCircle
+                    const isBusy = simulatingId === e.checkout_id
+                    const isSelected = (selectedEvent?.checkout_id || events[0]?.checkout_id) === e.checkout_id
+
+                    return (
+                      <tr
+                        key={e.checkout_id}
+                        onClick={() => setSelectedEvent(e)}
+                        style={{
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          background: isSelected ? 'rgba(82, 132, 255, 0.08)' : 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                          {e.checkout_id}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{e.customer_name}</div>
+                          <div className="text-muted text-xs">{e.customer_email}</div>
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {fmtINR(e.cart_value)}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: 4,
+                              background: 'rgba(255,255,255,0.06)',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            {e.abandonment_stage?.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <StatusBadge status={e.status} />
+                          {e.nudge_count && (
+                            <div className="text-muted text-xs" style={{ marginTop: 2 }}>
+                              Nudge {e.nudge_count}/3
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                          <button
+                            className="btn btn-primary"
+                            disabled={isBusy || e.status === 'expired'}
+                            onClick={(evt) => {
+                              evt.stopPropagation()
+                              handleTriggerRecovery(e)
+                            }}
+                            style={{ height: 32, padding: '0 12px', fontSize: 11.5, gap: 5, marginLeft: 'auto' }}
+                            aria-label={`Trigger recovery for ${e.checkout_id}`}
+                          >
+                            {isBusy ? (
+                              'Dispatching…'
+                            ) : e.status === 'expired' ? (
+                              'Expired (3/3)'
+                            ) : e.status === 'recovered' ? (
+                              <>
+                                Re-engage <ChannelIcon className="w-3 h-3" />
+                              </>
+                            ) : (
+                              <>
+                                Re-engage <Send className="w-3 h-3" />
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'var(--surface-el)', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Checkout ID</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Customer</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Items in Cart</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Cart Value</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Drop-off Stage</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>Status</th>
-                  <th style={{ padding: '12px 14px', color: 'var(--text-muted)', textAlign: 'right' }}>Autonomous Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((e) => {
-                  const ChannelIcon = CHANNEL_ICONS[e.recovery_channel] || MessageCircle
-                  const isBusy = simulatingId === e.checkout_id
+          {/* Live Smartphone Omnichannel Preview Simulator */}
+          <div className="phone-simulator">
+            <div className="phone-notch" />
+            <div className="phone-screen">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>
+                    R
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>Razorpay Recovery</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>Verified Business</div>
+                  </div>
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--accent-bright)', fontWeight: 600 }}>● {activeChannel.toUpperCase()}</span>
+              </div>
 
-                  return (
-                    <tr key={e.checkout_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                        {e.checkout_id}
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{e.customer_name}</div>
-                        <div className="text-muted text-xs">{e.customer_email}</div>
-                      </td>
-                      <td style={{ padding: '12px 14px', color: 'var(--text-secondary)', maxWidth: 220 }}>
-                        {e.items.join(', ')}
-                      </td>
-                      <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {fmtINR(e.cart_value)}
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <span
-                          style={{
-                            padding: '3px 8px',
-                            borderRadius: 4,
-                            background: 'rgba(255,255,255,0.06)',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: 'var(--text-secondary)',
-                          }}
-                        >
-                          {e.abandonment_stage?.replace(/_/g, ' ')} ({e.abandoned_at_minutes_ago}m ago)
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <StatusBadge status={e.status} />
-                        {e.nudge_count && (
-                          <div className="text-muted text-xs" style={{ marginTop: 2 }}>
-                            Nudge {e.nudge_count}/3
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        <button
-                          className="btn btn-primary"
-                          disabled={isBusy || e.status === 'expired'}
-                          onClick={() => handleTriggerRecovery(e)}
-                          style={{ height: 34, padding: '0 14px', fontSize: 12, gap: 6, marginLeft: 'auto' }}
-                          aria-label={`Trigger recovery for ${e.checkout_id}`}
-                        >
-                          {isBusy ? (
-                            'Dispatching…'
-                          ) : e.status === 'expired' ? (
-                            'Expired (3/3 reached)'
-                          ) : e.status === 'recovered' ? (
-                            <>
-                              Re-engage ({e.nudge_count || 1}/3) <ChannelIcon className="w-3.5 h-3.5" />
-                            </>
-                          ) : (
-                            <>
-                              Trigger Recovery <Send className="w-3.5 h-3.5" />
-                            </>
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+              {/* Message Content */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'flex-end', paddingTop: 16 }}>
+                <div className="phone-bubble phone-bubble--incoming">
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Order Pending</div>
+                  <div>Hi {selectedEvent?.customer_name || events[0]?.customer_name}, you left items in your cart:</div>
+                  <div style={{ fontWeight: 600, color: 'var(--accent-bright)', margin: '4px 0' }}>
+                    {(selectedEvent || events[0])?.items.join(', ')} ({fmtINR((selectedEvent || events[0])?.cart_value)})
+                  </div>
+                </div>
+
+                <div className={`phone-bubble ${activeChannel === 'whatsapp' ? 'phone-bubble--whatsapp' : 'phone-bubble--incoming'}`}>
+                  <div>
+                    Complete your checkout with {discountPct > 0 ? `an instant ${discountPct}% discount code applied!` : '1-click Razorpay link:'}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: '8px 10px',
+                      background: 'rgba(0,0,0,0.3)',
+                      borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      fontSize: 11,
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    🔗 pay.rzp.io/{(selectedEvent || events[0])?.checkout_id}?rec={activeChannel.slice(0, 2)}{discountPct}
+                  </div>
+                  <div style={{ fontSize: 9, opacity: 0.65, marginTop: 4, textAlign: 'right' }}>Just now · Sent via AI Recovery</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

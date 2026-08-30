@@ -177,6 +177,42 @@ export default function ReceivablesPage() {
           </div>
         </div>
 
+        {/* Aging Bucket Visual Thermometer Strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
+          {[
+            { id: '0-30 days', label: '0–30 Days Overdue', count: invoices.filter((i) => i.aging_bucket === '0-30 days').length, val: invoices.filter((i) => i.aging_bucket === '0-30 days').reduce((a, b) => a + b.amount, 0), color: '#3862FF', risk: 'Low Risk' },
+            { id: '31-60 days', label: '31–60 Days Overdue', count: invoices.filter((i) => i.aging_bucket === '31-60 days').length, val: invoices.filter((i) => i.aging_bucket === '31-60 days').reduce((a, b) => a + b.amount, 0), color: '#E5A138', risk: 'Medium Risk' },
+            { id: '61-90 days', label: '61–90 Days Overdue', count: invoices.filter((i) => i.aging_bucket === '61-90 days').length, val: invoices.filter((i) => i.aging_bucket === '61-90 days').reduce((a, b) => a + b.amount, 0), color: '#F59E0B', risk: 'High Risk' },
+            { id: '90+ days', label: '90+ Days (Legal)', count: invoices.filter((i) => i.aging_bucket === '90+ days').length, val: invoices.filter((i) => i.aging_bucket === '90+ days').reduce((a, b) => a + b.amount, 0), color: '#E05858', risk: 'Critical / Legal' },
+          ].map((bucket) => (
+            <div
+              key={bucket.id}
+              onClick={() => setActiveBucket(activeBucket === bucket.id ? 'all' : bucket.id)}
+              className="card card--padded card--hover"
+              style={{
+                cursor: 'pointer',
+                padding: '16px 18px',
+                borderRadius: 'var(--radius-md)',
+                border: activeBucket === bucket.id ? `1px solid ${bucket.color}` : '1px solid var(--border)',
+                background: activeBucket === bucket.id ? 'rgba(82, 132, 255, 0.12)' : 'var(--surface-el)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{bucket.label}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: bucket.color, background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>
+                  {bucket.risk}
+                </span>
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginTop: 8 }}>
+                {fmtINR(bucket.val)}
+              </div>
+              <div className="text-muted text-xs" style={{ marginTop: 2 }}>
+                {bucket.count} invoices · Click to filter
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Aging Bucket Selector Filters */}
         <div className="filter-bar" style={{ marginBottom: 20 }}>
           {['all', '0-30 days', '31-60 days', '61-90 days', '90+ days'].map((b) => (

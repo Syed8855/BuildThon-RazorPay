@@ -550,6 +550,126 @@ input[type="checkbox"] { width: auto; height: auto; accent-color: var(--accent);
 .recharts-tooltip-label { color: var(--text-primary) !important; font-weight: 600 !important; margin-bottom: 4px !important; }
 .recharts-tooltip-item  { color: var(--text-secondary) !important; }
 
+/* ─── Financial Command Center Banner ────────────────────────── */
+.command-banner {
+  background: linear-gradient(135deg, rgba(16, 24, 48, 0.95) 0%, rgba(10, 15, 30, 0.98) 100%);
+  border: 1px solid rgba(82, 132, 255, 0.28);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  box-shadow: var(--specular-card), 0 0 36px rgba(49, 92, 255, 0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+/* ─── Pipeline Lifecycle Flow ────────────────────────────────── */
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 15, 30, 0.8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.pipeline-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pipeline-node.active { color: #fff; }
+.pipeline-node.active .pipeline-circle {
+  background: linear-gradient(135deg, #315CFF 0%, #5284FF 100%);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(49, 92, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.pipeline-node.completed { color: var(--accent-bright); }
+.pipeline-node.completed .pipeline-circle {
+  background: rgba(82, 132, 255, 0.18);
+  color: var(--accent-bright);
+  border-color: var(--accent);
+}
+.pipeline-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.pipeline-line {
+  flex: 1;
+  min-width: 24px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 12px;
+}
+.pipeline-line.active { background: linear-gradient(90deg, #315CFF, #5284FF); }
+
+/* ─── Phone Simulator for Omnichannel Preview ────────────────── */
+.phone-simulator {
+  width: 100%;
+  max-width: 320px;
+  background: #0B0E14;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 36px;
+  padding: 16px 14px;
+  box-shadow: var(--specular-card), 0 24px 60px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+}
+.phone-notch {
+  width: 90px;
+  height: 18px;
+  background: #000;
+  border-radius: 12px;
+  margin: 0 auto 6px;
+}
+.phone-screen {
+  background: #06090F;
+  border-radius: 24px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 380px;
+}
+.phone-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 92%;
+}
+.phone-bubble--incoming {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+.phone-bubble--whatsapp {
+  background: #005D4B;
+  color: #E9FBE7;
+  border-bottom-right-radius: 4px;
+  align-self: flex-end;
+}
+
 /* ─── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .container { padding: 28px 20px; }
@@ -558,9 +678,10 @@ input[type="checkbox"] { width: auto; height: auto; accent-color: var(--accent);
   #mobile-nav-toggle { display: flex !important; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .shap-row { grid-template-columns: 100px 1fr 44px; }
+  .command-banner { padding: 20px; }
 }
 @media (max-width: 640px) {
-  .metric-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-grid { grid-template-columns: 1fr; gap: 10px; }
   .drawer { width: 100vw; border-left: none; }
   .filter-bar .search-input { margin-left: 0; width: 100%; }
 }

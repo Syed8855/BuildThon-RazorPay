@@ -509,6 +509,25 @@ export default function PlaygroundPage() {
               </div>
             </div>
 
+            {/* 5-Stage Bounded Lifecycle Pipeline */}
+            <div className="pipeline-flow">
+              {[
+                { step: '1', name: 'Decline Captured', active: simStage !== 'IDLE', completed: ['FAILED', 'ANALYZING', 'RETRYING', 'RECOVERED'].includes(simStage) },
+                { step: '2', name: 'Rule Guardrail', active: ['FAILED', 'ANALYZING', 'RETRYING', 'RECOVERED'].includes(simStage), completed: ['ANALYZING', 'RETRYING', 'RECOVERED'].includes(simStage) },
+                { step: '3', name: 'XGBoost ML Score', active: ['ANALYZING', 'RETRYING', 'RECOVERED'].includes(simStage), completed: ['RETRYING', 'RECOVERED'].includes(simStage) },
+                { step: '4', name: 'Smart Schedule', active: ['RETRYING', 'RECOVERED'].includes(simStage), completed: ['RECOVERED'].includes(simStage) },
+                { step: '5', name: 'Salvaged Outcome', active: simStage === 'RECOVERED', completed: simStage === 'RECOVERED' },
+              ].map((node, i, arr) => (
+                <div key={node.step} style={{ display: 'flex', alignItems: 'center', flex: i === arr.length - 1 ? 'none' : 1 }}>
+                  <div className={`pipeline-node ${node.completed ? 'completed' : node.active ? 'active' : ''}`}>
+                    <div className="pipeline-circle">{node.completed ? '✓' : node.step}</div>
+                    <span>{node.name}</span>
+                  </div>
+                  {i < arr.length - 1 && <div className={`pipeline-line ${node.completed ? 'active' : ''}`} />}
+                </div>
+              ))}
+            </div>
+
             {/* Form & Diagnostics Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 400px) 1fr', gap: 24, alignItems: 'start' }}>
               {/* Input Configuration Panel */}
