@@ -15,7 +15,7 @@ import { X, Search, Play, RotateCcw, CheckCircle2, Download, Radio, Building2, S
 const fmtINR = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n ?? 0)
 const ease = [0.22, 1, 0.36, 1]
 
-const STATUS_FILTERS = ['all', 'retrying', 'recovered', 'failed']
+const STATUS_FILTERS = ['all', 'retrying', 'recovered', 'failed', 'escalated_to_human', 'dnd_blocked', 'quiet_hours_held']
 const REASON_FILTERS = [
   'all',
   'insufficient_funds',
@@ -82,7 +82,7 @@ function ReplayModal({ txn, onClose }) {
             <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>{txn.merchant_name}</div>
             <div className="text-mono text-xs text-muted" style={{ marginTop: 2 }}>{txn.transaction_id}</div>
           </div>
-          <button className="btn btn-icon" onClick={onClose}>
+          <button className="btn btn-icon" onClick={onClose} aria-label="Close replay modal">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -165,6 +165,7 @@ function ReplayModal({ txn, onClose }) {
               setTimeout(() => { setReplayStage('RETRYING'); playRetrySound() }, 3600)
               setTimeout(() => { setReplayStage('RECOVERED'); playSuccessSound() }, 5000)
             }}
+            aria-label="Replay transaction simulation again"
           >
             <RotateCcw className="w-3.5 h-3.5" /> Replay Again
           </button>
@@ -218,10 +219,11 @@ function DetailDrawer({ txn, onClose, onReplay }) {
               className="btn btn-primary"
               onClick={() => onReplay(txn)}
               style={{ height: 36, padding: '0 14px', fontSize: 12, gap: 6 }}
+              aria-label={`Replay recovery for transaction ${txn.transaction_id}`}
             >
               Replay <Play className="w-3.5 h-3.5 fill-current" />
             </button>
-            <button className="btn btn-icon" onClick={onClose} style={{ flexShrink: 0 }}>
+            <button className="btn btn-icon" onClick={onClose} style={{ flexShrink: 0 }} aria-label="Close transaction details drawer">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -275,6 +277,7 @@ function DetailDrawer({ txn, onClose, onReplay }) {
                 ['Payment method', txn.payment_method],
                 ['Customer segment', txn.customer_segment],
                 ['Attempt count', `${txn.attempt_count} / ${txn.max_attempts}`],
+                ['Compliance status', txn.compliance_status || 'Compliant'],
               ].map(([k, v]) => (
                 <div
                   key={k}
@@ -291,6 +294,109 @@ function DetailDrawer({ txn, onClose, onReplay }) {
                   <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{v || '—'}</div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* ── Chronological Immutable Audit Trail Ledger ── */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div className="drawer__section-hdr" style={{ margin: 0 }}>Chronological Audit Trail</div>
+              <span className="text-mono text-xs text-muted" style={{ fontSize: 10 }}>IMMUTABLE LOG</span>
+            </div>
+            
+            <div
+              style={{
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                background: 'rgba(0,0,0,0.25)',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface-el)', borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 600 }}># Time</th>
+                      <th style={{ padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 600 }}>Channel</th>
+                      <th style={{ padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 600 }}>Intervention</th>
+                      <th style={{ padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 600 }}>Outcome</th>
+                      <th style={{ padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 600 }}>Amount</th>
+                      <th style={{ padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 600 }}>Stopping / Escalation Rationale</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(txn.attempt_timeline && txn.attempt_timeline.length > 0 ? txn.attempt_timeline : [
+                      {
+                        attempt_number: 1,
+                        attempt_timestamp: txn.date || '2026-08-30 09:00',
+                        channel: txn.payment_method === 'upi' ? 'upi_autopay' : 'auto_retry',
+                        intervention_type: 'Gateway Re-authorization',
+                        outcome: txn.status === 'recovered' ? 'success' : txn.status === 'failed' ? 'fail' : 'retrying',
+                        amount: txn.amount,
+                        reason_or_stopping: txn.failure_reason === 'card_stolen' 
+                          ? 'Hard-fail short circuit: card flagged' 
+                          : txn.status === 'recovered' 
+                          ? 'Settled successfully' 
+                          : 'Transient gateway decline; retry queued',
+                        compliance_flags: 'Compliant'
+                      }
+                    ]).map((att, idx) => (
+                      <tr
+                        key={idx}
+                        style={{
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          background: att.outcome === 'success' 
+                            ? 'rgba(82, 132, 255, 0.05)' 
+                            : att.outcome === 'escalated_to_human'
+                            ? 'rgba(245, 158, 11, 0.05)'
+                            : 'transparent'
+                        }}
+                      >
+                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+                          <span style={{ color: 'var(--accent-bright)', fontWeight: 700, marginRight: 4 }}>
+                            #{att.attempt_number}
+                          </span>
+                          <span className="text-muted" style={{ fontSize: 11 }}>
+                            {att.attempt_timestamp?.split(' ')[1] || att.attempt_timestamp}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                          <span
+                            style={{
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              background: 'rgba(255,255,255,0.06)',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              textTransform: 'uppercase',
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            {att.channel?.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontWeight: 500 }}>
+                          {att.intervention_type || 'Smart Retry'}
+                        </td>
+                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                          <StatusBadge status={att.outcome} />
+                        </td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                          {fmtINR(att.amount || txn.amount)}
+                        </td>
+                        <td style={{ padding: '8px 10px', fontSize: 11, color: 'var(--text-secondary)', maxWidth: 220 }}>
+                          <div>{att.reason_or_stopping}</div>
+                          {att.compliance_flags && (
+                            <div style={{ fontSize: 10, color: 'var(--accent-bright)', marginTop: 2 }}>
+                              🛡️ {att.compliance_flags}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -383,11 +489,12 @@ export default function TransactionsPage() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className={`btn ${liveStream ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setLiveStream(!liveStream)}
               style={{ height: 40, padding: '0 16px', fontSize: 13, gap: 6 }}
+              aria-label={liveStream ? 'Disable real-time live transaction feed' : 'Enable real-time live transaction feed'}
             >
               <Radio className={`w-3.5 h-3.5 ${liveStream ? 'animate-pulse' : ''}`} />
               {liveStream ? 'Live Stream Active' : 'Enable Live Stream'}
@@ -397,6 +504,7 @@ export default function TransactionsPage() {
               className="btn btn-secondary"
               onClick={() => exportTransactionsCSV(filtered)}
               style={{ height: 40, padding: '0 16px', fontSize: 13, gap: 6 }}
+              aria-label="Export filtered transactions as CSV"
             >
               <Download className="w-3.5 h-3.5" /> Export CSV
             </button>
@@ -406,34 +514,37 @@ export default function TransactionsPage() {
         {dataLoaded && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}>
             {/* Status Filters */}
-            <div className="filter-bar">
+            <div className="filter-bar" style={{ flexWrap: 'wrap', gap: 8 }}>
               {STATUS_FILTERS.map((f) => (
                 <button
                   key={f}
                   className={`filter-pill${statusF === f ? ' active' : ''}`}
                   onClick={() => setStatusF(f)}
+                  aria-label={`Filter by status ${f}`}
                 >
                   {f === 'all' ? 'All Statuses' : f}
                 </button>
               ))}
-              <div style={{ position: 'relative', marginLeft: 'auto' }}>
+              <div style={{ position: 'relative', marginLeft: 'auto', minWidth: 200 }}>
                 <input
                   className="search-input"
                   placeholder="Search merchant or ID…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Search transactions"
                 />
               </div>
             </div>
 
             {/* Failure Reason Filters */}
-            <div className="filter-bar" style={{ marginBottom: 24 }}>
+            <div className="filter-bar" style={{ marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
               {REASON_FILTERS.map((f) => (
                 <button
                   key={f}
                   className={`filter-pill${reasonF === f ? ' active' : ''}`}
                   onClick={() => setReasonF(f)}
                   style={{ fontSize: 11 }}
+                  aria-label={`Filter by failure reason ${f}`}
                 >
                   {f === 'all' ? 'All Failure Reasons' : f.replace(/_/g, ' ')}
                 </button>
@@ -446,7 +557,7 @@ export default function TransactionsPage() {
                 <span className="section-title">{filtered.length} matched transactions</span>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 {filtered.length === 0 && (
                   <div className="card card--padded state-empty">No transactions matching filter criteria</div>
                 )}
@@ -469,6 +580,7 @@ export default function TransactionsPage() {
                         cursor: 'pointer',
                         borderColor: isSel ? 'var(--accent)' : 'var(--border)',
                         background: isSel ? 'rgba(82, 132, 255, 0.06)' : 'var(--surface)',
+                        minWidth: 720,
                       }}
                     >
                       {/* Merchant & Amount */}
@@ -491,21 +603,21 @@ export default function TransactionsPage() {
                         {txn.payment_method}
                       </div>
 
-                      {/* Probability */}
+                      {/* AI Confidence / Telemetry (Consolidated) */}
                       <div>
                         {prob != null ? (
-                          <div className="prob-bar">
-                            <div className="prob-bar__track">
-                              <div className="prob-bar__fill" style={{ width: `${prob * 100}%` }} />
-                            </div>
-                            <span className="text-xs text-muted font-semibold">{(prob * 100).toFixed(0)}%</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AI Conf:</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: prob >= 0.7 ? 'var(--accent-bright)' : prob >= 0.4 ? 'var(--status-warn)' : 'var(--text-muted)' }}>
+                              {(prob * 100).toFixed(0)}%
+                            </span>
                           </div>
                         ) : (
                           <span className="text-muted text-xs">—</span>
                         )}
                       </div>
 
-                      {/* Status */}
+                      {/* Status (Primary Indicator) */}
                       <div>
                         <StatusBadge status={txn.status} />
                       </div>
@@ -518,6 +630,7 @@ export default function TransactionsPage() {
                           setReplayTxn(txn)
                         }}
                         style={{ height: 36, padding: '0 14px', fontSize: 12, gap: 4 }}
+                        aria-label={`Replay recovery simulation for ${txn.transaction_id}`}
                       >
                         Replay <Play className="w-3 h-3 fill-current" />
                       </button>

@@ -8,9 +8,10 @@ import { Menu, X, ArrowRight } from 'lucide-react'
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/transactions', label: 'Transactions' },
-  { href: '/playground', label: 'Playground' },
+  { href: '/playground', label: 'Batch & Sim' },
+  { href: '/checkout-recovery', label: 'Checkout Recovery' },
+  { href: '/receivables', label: 'B2B Receivables' },
   { href: '/analytics', label: 'Analytics' },
-  { href: '/design-decisions', label: 'Design decisions' },
 ]
 
 export default function GlobalNav() {
@@ -30,8 +31,9 @@ export default function GlobalNav() {
                 backdropFilter: 'blur(16px)',
                 WebkitBackdropFilter: 'blur(16px)',
                 borderBottomColor: 'var(--border)',
+                userSelect: 'none',
               }
-            : {}
+            : { userSelect: 'none' }
         }
       >
         <Link href="/" className="nav__brand" style={{ textDecoration: 'none' }}>
@@ -41,13 +43,14 @@ export default function GlobalNav() {
         {/* Desktop Links */}
         <ul className="nav__links">
           {NAV_LINKS.map(({ href, label }) => {
-            const active = path === href || (href !== '/' && path.startsWith(href))
+            // Strictly active only on matching page (never active on home page '/')
+            const active = !isHero && (path === href || (href !== '/' && path.startsWith(href)))
             return (
               <li key={href}>
                 <Link
                   href={href}
                   className={active ? 'active' : ''}
-                  style={isHero ? { color: active ? 'var(--accent)' : 'var(--text-secondary)' } : {}}
+                  style={isHero ? { color: 'var(--text-secondary)' } : {}}
                 >
                   {label}
                 </Link>
@@ -57,19 +60,22 @@ export default function GlobalNav() {
         </ul>
 
         <div className="nav__actions">
-          <Link
-            href="/playground"
-            className="btn btn-primary"
-            style={{ fontSize: 13, height: 38, padding: '0 18px', gap: 6 }}
-          >
-            Launch Playground <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          {!isHero && (
+            <Link
+              href="/playground"
+              className="btn btn-primary"
+              style={{ fontSize: 13, height: 38, padding: '0 18px', gap: 6 }}
+              aria-label="Launch Playground Simulator"
+            >
+              Launch Simulator <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
           <button
             className="btn btn-icon"
             onClick={() => setMobileOpen(!mobileOpen)}
             style={{ display: 'none' }}
             id="mobile-nav-toggle"
-            aria-label="Toggle navigation menu"
+            aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
           >
             {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
@@ -92,6 +98,7 @@ export default function GlobalNav() {
             display: 'flex',
             flexDirection: 'column',
             gap: 16,
+            userSelect: 'none',
           }}
         >
           {NAV_LINKS.map(({ href, label }) => (
@@ -101,15 +108,23 @@ export default function GlobalNav() {
               onClick={() => setMobileOpen(false)}
               style={{
                 fontSize: 16,
-                fontWeight: 500,
-                color: path === href ? 'var(--accent)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                color: path === href ? 'var(--accent-bright)' : 'var(--text-secondary)',
                 textDecoration: 'none',
-                padding: '8px 0',
               }}
             >
               {label}
             </Link>
           ))}
+          <Link
+            href="/playground"
+            onClick={() => setMobileOpen(false)}
+            className="btn btn-primary"
+            style={{ marginTop: 8 }}
+            aria-label="Launch Playground Simulator"
+          >
+            Launch Simulator →
+          </Link>
         </div>
       )}
     </>

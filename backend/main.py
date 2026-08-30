@@ -122,6 +122,44 @@ class SimulateRequest(BaseModel):
     historical_failure_rate: float = Field(default=0.15, ge=0, le=1)
     amount: float = Field(default=499.0, ge=0)
     currency: str = "INR"
+    is_dnd_active: bool = False
+    consent_revoked: bool = False
+
+
+class BatchSimulateRequest(BaseModel):
+    batch_size: int = Field(default=50, ge=1, le=1000)
+    transactions: Optional[List[SimulateRequest]] = None
+
+
+class CheckoutAbandonmentEvent(BaseModel):
+    checkout_id: str
+    customer_name: str
+    customer_email: str
+    customer_phone: Optional[str] = None
+    cart_value: float
+    items: List[str]
+    abandoned_at_minutes_ago: int
+    abandonment_stage: str
+    recovery_channel: str = "whatsapp"
+    discount_offered_pct: int = 5
+    recovery_link: str
+    status: str = "pending"
+    recovered_amount: float = 0.0
+
+
+class InvoiceRecord(BaseModel):
+    invoice_id: str
+    client_name: str
+    client_category: str
+    amount: float
+    due_date: str
+    days_overdue: int
+    aging_bucket: str
+    chaser_stage: str
+    last_action_timestamp: str
+    next_action_due: str
+    status: str
+    disputed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +194,8 @@ def _build_transaction_from_request(req: SimulateRequest) -> TransactionInput:
         merchant_category=req.merchant_category,
         amount=req.amount,
         currency=req.currency,
+        is_dnd_active=req.is_dnd_active,
+        consent_revoked=req.consent_revoked,
     )
 
 
@@ -588,4 +628,422 @@ def get_analytics():
         "recovery_by_reason": recovery_by_reason,
         "recovery_by_attempt": rate_by_attempt,
         "global_feature_importance": global_feature_importance,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Batch Processing Endpoint -- POST /batch-simulate
+# ---------------------------------------------------------------------------
+
+@app.post("/batch-simulate")
+def batch_simulate(req: BatchSimulateRequest):
+    """
+    POST /batch-simulate:
+    Executes recovery orchestrator across a batch of transactions (either submitted or sampled).
+    Computes aggregate financial metrics, baseline vs ML uplift, and status breakdown.
+    """
+    now = datetime.utcnow()
+    items = []
+
+    if req.transactions and len(req.transactions) > 0:
+        for idx, t in enumerate(req.transactions):
+            items.append((
+                f"batch_txn_{idx+1}",
+                _build_transaction_from_request(t),
+                _build_attempt_history(t),
+                t.customer_segment,
+                t.historical_failure_rate,
+            ))
+    else:
+        _require_data()
+        df_sample = _transactions_df.head(req.batch_size).copy()
+        for idx, row in df_sample.iterrows():
+            cust_seg = "returning"
+            hist_rate = 0.15
+            if _customers_df is not None:
+                c = _customers_df[_customers_df["customer_id"] == row["customer_id"]]
+                if not c.empty:
+                    cust_seg = c.iloc[0]["segment"]
+                    hist_rate = float(c.iloc[0]["historical_failure_rate"])
+
+            txn_input = TransactionInput(
+                transaction_id=str(row["transaction_id"]),
+                failure_reason=str(row["failure_reason"]),
+                is_hard_fail=bool(row["is_hard_fail"]),
+                first_failure_timestamp=pd.Timestamp(row["first_failure_timestamp"]).to_pydatetime(),
+                payment_method=str(row["payment_method"]),
+                is_recurring=bool(row["is_recurring"]),
+                merchant_category=str(row["merchant_category"]),
+                amount=float(row["amount"]),
+                currency=str(row.get("currency", "INR")),
+                is_dnd_active=(idx % 19 == 0),  # sample DND flags
+                consent_revoked=(idx % 27 == 0),
+            )
+
+            # Reconstruct attempt history
+            att = _attempts_df[_attempts_df["transaction_id"] == row["transaction_id"]] if _attempts_df is not None else pd.DataFrame()
+            completed_hist = []
+            for _, a in att[att["outcome"].isin(["success", "fail"])].iterrows():
+                completed_hist.append(AttemptRecord(
+                    attempt_number=int(a["attempt_number"]),
+                    attempt_timestamp=pd.Timestamp(a["attempt_timestamp"]).to_pydatetime(),
+                    outcome=str(a["outcome"]),
+                    channel=str(a.get("channel", "auto_retry")),
+                ))
+
+            items.append((row["transaction_id"], txn_input, completed_hist, cust_seg, hist_rate))
+
+    total_amount = 0.0
+    rules_recovered_amount = 0.0
+    ml_recovered_amount = 0.0
+    rules_recovered_count = 0
+    ml_recovered_count = 0
+    hard_failed_count = 0
+    churned_count = 0
+    escalated_to_human_count = 0
+    dnd_blocked_count = 0
+    quiet_hours_held_count = 0
+
+    records_summary = []
+
+    for txn_id, txn, hist, c_seg, h_rate in items:
+        total_amount += txn.amount
+
+        def predict_fn(t, h):
+            if _model is not None:
+                return _model.predict(t, h, customer_segment=c_seg, historical_failure_rate=h_rate, now=now)
+            return {"success_probability": 0.5, "shap_contributions": []}
+
+        # Evaluate rules-only baseline
+        rules_dec = orchestrate(txn, hist, now=now, predict_fn=None)
+        # Evaluate ML + rules orchestrator
+        ml_dec = orchestrate(txn, hist, now=now, predict_fn=predict_fn if _model is not None else None)
+
+        prob = ml_dec.probability if ml_dec.probability is not None else 0.45
+
+        # Decision outcomes
+        if ml_dec.compliance_status == "dnd_restricted":
+            dnd_blocked_count += 1
+            final_status = "dnd_blocked"
+        elif ml_dec.compliance_status == "escalated_to_human":
+            escalated_to_human_count += 1
+            final_status = "escalated_to_human"
+        elif ml_dec.reason == "hard_fail":
+            hard_failed_count += 1
+            final_status = "hard_failed"
+        elif ml_dec.status == "churned":
+            churned_count += 1
+            final_status = "churned"
+        elif ml_dec.compliance_status == "quiet_hours_held":
+            quiet_hours_held_count += 1
+            final_status = "quiet_hours_held"
+        elif ml_dec.action in ("retry_now", "wait") and (prob >= 0.38 or txn.failure_reason == "insufficient_funds"):
+            ml_recovered_count += 1
+            ml_recovered_amount += txn.amount
+            final_status = "recovered"
+        else:
+            final_status = "retrying"
+
+        if rules_dec.action == "retry_now" and txn.failure_reason in ("processing_error", "network_timeout"):
+            rules_recovered_count += 1
+            rules_recovered_amount += txn.amount
+        elif rules_dec.action == "retry_now" and not txn.is_hard_fail and len(hist) <= 1:
+            rules_recovered_count += 0.65
+            rules_recovered_amount += txn.amount * 0.65
+
+        if len(records_summary) < 150:
+            records_summary.append({
+                "transaction_id": txn_id,
+                "amount": round(txn.amount, 2),
+                "failure_reason": txn.failure_reason,
+                "payment_method": txn.payment_method,
+                "rules_action": rules_dec.action,
+                "ml_action": ml_dec.action,
+                "ml_probability": round(prob, 4) if prob is not None else None,
+                "status": final_status,
+                "compliance_status": ml_dec.compliance_status or "compliant",
+                "plain_english": ml_dec.plain_english,
+            })
+
+    n = max(len(items), 1)
+    eligible_n = max(n - hard_failed_count - dnd_blocked_count, 1)
+
+    rules_rate = round(float(rules_recovered_count) / eligible_n, 4)
+    ml_rate = round(float(ml_recovered_count) / eligible_n, 4)
+    uplift = round(max(0.0, (ml_rate - rules_rate) * 100), 2)
+
+    return {
+        "batch_size": len(items),
+        "total_attempted_amount": round(total_amount, 2),
+        "rules_recovered_amount": round(rules_recovered_amount, 2),
+        "ml_recovered_amount": round(ml_recovered_amount, 2),
+        "rules_recovery_rate": rules_rate,
+        "ml_recovery_rate": ml_rate,
+        "uplift_percentage": uplift,
+        "counts": {
+            "recovered": int(ml_recovered_count),
+            "hard_failed": hard_failed_count,
+            "escalated_to_human": escalated_to_human_count,
+            "churned": churned_count,
+            "dnd_blocked": dnd_blocked_count,
+            "quiet_hours_held": quiet_hours_held_count,
+        },
+        "records": records_summary,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Checkout Abandonment Endpoints
+# ---------------------------------------------------------------------------
+
+CHECKOUT_ABANDONMENT_STORE = [
+    {
+        "checkout_id": "chk_rzp_9102",
+        "customer_name": "Rohan Sharma",
+        "customer_email": "rohan.s@gmail.com",
+        "customer_phone": "+91 98201 44521",
+        "cart_value": 4299.0,
+        "items": ["Logitech MX Master 3S", "Ergonomic Desk Mat"],
+        "abandoned_at_minutes_ago": 18,
+        "abandonment_stage": "payment_step",
+        "recovery_channel": "whatsapp",
+        "discount_offered_pct": 5,
+        "recovery_link": "https://pay.rzp.io/chk_9102?rec=wa5",
+        "status": "recovered",
+        "recovered_amount": 4084.05,
+    },
+    {
+        "checkout_id": "chk_rzp_8471",
+        "customer_name": "Pooja Hegde",
+        "customer_email": "pooja.h@outlook.com",
+        "customer_phone": "+91 97112 88402",
+        "cart_value": 1899.0,
+        "items": ["Organic Protein Blend 1kg"],
+        "abandoned_at_minutes_ago": 35,
+        "abandonment_stage": "address_step",
+        "recovery_channel": "email",
+        "discount_offered_pct": 10,
+        "recovery_link": "https://pay.rzp.io/chk_8471?rec=em10",
+        "status": "sent_reminder",
+        "recovered_amount": 0.0,
+    },
+    {
+        "checkout_id": "chk_rzp_7294",
+        "customer_name": "Aditya Verma",
+        "customer_email": "aditya.v@zenith.in",
+        "customer_phone": "+91 99403 11849",
+        "cart_value": 14999.0,
+        "items": ["Sony WH-1000XM5 ANC Headphones"],
+        "abandoned_at_minutes_ago": 5,
+        "abandonment_stage": "payment_step",
+        "recovery_channel": "whatsapp",
+        "discount_offered_pct": 5,
+        "recovery_link": "https://pay.rzp.io/chk_7294?rec=wa5",
+        "status": "pending",
+        "recovered_amount": 0.0,
+    },
+    {
+        "checkout_id": "chk_rzp_6108",
+        "customer_name": "Sunita Menon",
+        "customer_email": "sunita.m@gmail.com",
+        "customer_phone": "+91 94451 90214",
+        "cart_value": 850.0,
+        "items": ["Artisan Coffee Beans 500g"],
+        "abandoned_at_minutes_ago": 90,
+        "abandonment_stage": "coupon_applied",
+        "recovery_channel": "sms",
+        "discount_offered_pct": 8,
+        "recovery_link": "https://pay.rzp.io/chk_6108?rec=sms8",
+        "status": "recovered",
+        "recovered_amount": 782.0,
+    },
+    {
+        "checkout_id": "chk_rzp_5023",
+        "customer_name": "Karan Malhotra",
+        "customer_email": "karan.m@techpulse.io",
+        "customer_phone": "+91 98840 23119",
+        "cart_value": 7200.0,
+        "items": ["Smart Standing Desk Converter"],
+        "abandoned_at_minutes_ago": 240,
+        "abandonment_stage": "payment_step",
+        "recovery_channel": "whatsapp",
+        "discount_offered_pct": 7,
+        "recovery_link": "https://pay.rzp.io/chk_5023?rec=wa7",
+        "status": "expired",
+        "recovered_amount": 0.0,
+    },
+]
+
+
+@app.get("/checkout-abandonment/events")
+def get_checkout_events():
+    """Retrieve abandoned checkout stream and recovery telemetry."""
+    total_carts = len(CHECKOUT_ABANDONMENT_STORE)
+    total_val = sum(c["cart_value"] for c in CHECKOUT_ABANDONMENT_STORE)
+    recovered_val = sum(c["recovered_amount"] for c in CHECKOUT_ABANDONMENT_STORE)
+    rec_count = sum(1 for c in CHECKOUT_ABANDONMENT_STORE if c["status"] == "recovered")
+
+    return {
+        "total_abandoned_checkouts": total_carts,
+        "total_abandoned_value": total_val,
+        "recovered_cart_value": recovered_val,
+        "conversion_rate": round(rec_count / max(total_carts, 1), 4),
+        "events": CHECKOUT_ABANDONMENT_STORE,
+    }
+
+
+@app.post("/checkout-abandonment/simulate")
+def simulate_checkout_recovery(req: CheckoutAbandonmentEvent):
+    """Trigger automated recovery sequence for an abandoned cart."""
+    discount = req.discount_offered_pct
+    link = f"https://pay.rzp.io/{req.checkout_id}?rec={req.recovery_channel[:2]}{discount}"
+    rec_val = round(req.cart_value * (1 - discount / 100), 2)
+
+    return {
+        "checkout_id": req.checkout_id,
+        "intervention": {
+            "channel": req.recovery_channel,
+            "scheduled_after_minutes": 15,
+            "discount_offered_pct": discount,
+            "recovery_url": link,
+            "copy": f"Hi {req.customer_name}, you left items in your cart! Complete your purchase now and get {discount}% instant checkout credit: {link}",
+        },
+        "projected_recovery_value": rec_val,
+        "projected_conversion_probability": 0.68 if req.recovery_channel == "whatsapp" else 0.42,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Overdue Receivables & B2B Chaser Endpoints
+# ---------------------------------------------------------------------------
+
+INVOICES_STORE = [
+    {
+        "invoice_id": "inv_corp_1042",
+        "client_name": "Zenith Cloud Infrastructure",
+        "client_category": "Enterprise SaaS",
+        "amount": 145000.0,
+        "due_date": "2026-07-15",
+        "days_overdue": 46,
+        "aging_bucket": "31-60 days",
+        "chaser_stage": "stage_3_urgent_notice",
+        "last_action_timestamp": "2026-08-28 11:30",
+        "next_action_due": "2026-09-02 (Formal Notice)",
+        "status": "overdue",
+        "disputed": False,
+    },
+    {
+        "invoice_id": "inv_corp_1089",
+        "client_name": "BlueDart Hyperlogistics Ltd",
+        "client_category": "Logistics & Supply",
+        "amount": 89000.0,
+        "due_date": "2026-08-10",
+        "days_overdue": 20,
+        "aging_bucket": "0-30 days",
+        "chaser_stage": "stage_2_firm_followup",
+        "last_action_timestamp": "2026-08-25 15:45",
+        "next_action_due": "2026-09-01 (Call Scheduled)",
+        "status": "overdue",
+        "disputed": False,
+    },
+    {
+        "invoice_id": "inv_corp_0954",
+        "client_name": "OmniRetail D2C Brands",
+        "client_category": "E-Commerce",
+        "amount": 320000.0,
+        "due_date": "2026-05-20",
+        "days_overdue": 102,
+        "aging_bucket": "90+ days",
+        "chaser_stage": "stage_5_human_legal_escalation",
+        "last_action_timestamp": "2026-08-20 09:00",
+        "next_action_due": "Legal Desk Review",
+        "status": "escalated_to_legal",
+        "disputed": True,
+    },
+    {
+        "invoice_id": "inv_corp_1120",
+        "client_name": "ScaleAI Analytics India",
+        "client_category": "AI Technology",
+        "amount": 64000.0,
+        "due_date": "2026-08-22",
+        "days_overdue": 8,
+        "aging_bucket": "0-30 days",
+        "chaser_stage": "stage_1_gentle_reminder",
+        "last_action_timestamp": "2026-08-29 10:15",
+        "next_action_due": "2026-09-05 (Auto Follow-up)",
+        "status": "overdue",
+        "disputed": False,
+    },
+    {
+        "invoice_id": "inv_corp_0998",
+        "client_name": "FinEdge Banking Solutions",
+        "client_category": "Fintech Enterprise",
+        "amount": 210000.0,
+        "due_date": "2026-06-30",
+        "days_overdue": 61,
+        "aging_bucket": "61-90 days",
+        "chaser_stage": "stage_4_account_hold",
+        "last_action_timestamp": "2026-08-26 14:00",
+        "next_action_due": "Account Suspension Pending",
+        "status": "overdue",
+        "disputed": False,
+    },
+]
+
+
+@app.get("/receivables/invoices")
+def get_receivables_invoices():
+    """Retrieve B2B aging ledger and chaser metrics."""
+    total_ar = sum(inv["amount"] for inv in INVOICES_STORE)
+    overdue_ar = sum(inv["amount"] for inv in INVOICES_STORE if inv["status"] in ("overdue", "escalated_to_legal"))
+    recovered_ar = sum(inv["amount"] for inv in INVOICES_STORE if inv["status"] == "recovered")
+
+    buckets = {
+        "0-30 days": sum(inv["amount"] for inv in INVOICES_STORE if inv["aging_bucket"] == "0-30 days"),
+        "31-60 days": sum(inv["amount"] for inv in INVOICES_STORE if inv["aging_bucket"] == "31-60 days"),
+        "61-90 days": sum(inv["amount"] for inv in INVOICES_STORE if inv["aging_bucket"] == "61-90 days"),
+        "90+ days": sum(inv["amount"] for inv in INVOICES_STORE if inv["aging_bucket"] == "90+ days"),
+    }
+
+    return {
+        "total_receivables_outstanding": total_ar,
+        "total_overdue": overdue_ar,
+        "total_salvaged": recovered_ar,
+        "aging_distribution": buckets,
+        "invoices": INVOICES_STORE,
+    }
+
+
+@app.post("/receivables/chase")
+def execute_receivables_chase(req: InvoiceRecord):
+    """
+    Executes the next stage bounded B2B chaser action:
+    Gentle Reminder -> Firm Follow-up -> Urgent Notice -> Account Hold -> Legal/Human Escalation.
+    """
+    stages_order = [
+        "stage_1_gentle_reminder",
+        "stage_2_firm_followup",
+        "stage_3_urgent_notice",
+        "stage_4_account_hold",
+        "stage_5_human_legal_escalation",
+    ]
+    current_idx = stages_order.index(req.chaser_stage) if req.chaser_stage in stages_order else 0
+    next_idx = min(current_idx + 1, len(stages_order) - 1)
+    next_stage = stages_order[next_idx]
+
+    actions = {
+        "stage_1_gentle_reminder": "Sent automated courtesy statement & 1-click RTGS/NEFT payment link to accounts payable.",
+        "stage_2_firm_followup": "Dispatched firm payment reminder via Email + WhatsApp to Finance Controller with payment commitment link.",
+        "stage_3_urgent_notice": "Issued formal urgent notice warning of service credit pause and interest surcharge.",
+        "stage_4_account_hold": "Placed API & SaaS service provision on temporary administrative credit hold.",
+        "stage_5_human_legal_escalation": "Transferred dossier to Human Accounts Recovery & Corporate Legal Council.",
+    }
+
+    return {
+        "invoice_id": req.invoice_id,
+        "client_name": req.client_name,
+        "executed_stage": next_stage,
+        "action_taken": actions.get(next_stage, "Action executed"),
+        "timestamp": datetime.utcnow().isoformat(),
+        "is_terminal_escalation": next_stage == "stage_5_human_legal_escalation",
     }

@@ -112,25 +112,25 @@ export default function DashboardPage() {
 
   const kpis = [
     {
-      id: 'revenue',
-      label: 'Total Salvaged ARR',
-      value: fmtINR(Math.round((rev.recovered || 148250) * multiplier)),
+      id: 'arr',
+      label: 'Autonomous Recovered ARR',
+      value: fmtINR(Math.round((rev.recovered || 1119500) * multiplier)),
       cls: 'metric-card__value--gold',
-      sub: '✦ +14.2% vs last month',
-      detail: 'Cumulative recurring revenue salvaged by autonomous ML retry schedules, preventing involuntary churn.',
+      sub: `+${((f.recovery_rate || 0.864) * 100).toFixed(1)}% recovery efficiency`,
+      detail: 'Cumulative gross revenue recovered strictly via autonomous smart retries without human collector intervention.',
     },
     {
       id: 'rate',
       label: 'Autonomous Recovery Rate',
       value: `${((f.recovery_rate || 0.864) * 100).toFixed(1)}%`,
       cls: 'metric-card__value--blue',
-      sub: 'of transient payment declines',
-      detail: 'Percentage of non-hard-failed transactions recovered before reaching maximum retry thresholds.',
+      sub: `${f.recovered || 944} of ${f.eligible_for_retry || 1092} eligible salvages`,
+      detail: 'Percentage of retry-eligible payment failures successfully authorized across all active payment methods.',
     },
     {
       id: 'payments',
       label: 'Payments Recovered',
-      value: fmtNum(Math.round(184 * multiplier)),
+      value: fmtNum(Math.round((f.recovered || 944) * multiplier)),
       cls: 'metric-card__value--blue',
       sub: 'confirmed authorizations',
       detail: 'Total individual customer invoices converted from initial payment decline to confirmed bank authorization.',
@@ -138,7 +138,7 @@ export default function DashboardPage() {
     {
       id: 'risk',
       label: 'Revenue at Risk',
-      value: fmtINR(Math.round((rev.at_risk || 12430) * multiplier)),
+      value: fmtINR(Math.round((rev.at_risk || 176200) * multiplier)),
       cls: 'metric-card__value--dim',
       sub: '14 active retry schedules',
       detail: 'Outstanding revenue currently in-flight within optimal retry windows.',
@@ -178,6 +178,7 @@ export default function DashboardPage() {
               className={`btn ${liveStream ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setLiveStream(!liveStream)}
               style={{ height: 40, padding: '0 16px', fontSize: 13, gap: 6 }}
+              aria-label={liveStream ? 'Disable live telemetry stream' : 'Enable live telemetry stream'}
             >
               <Radio className={`w-3.5 h-3.5 ${liveStream ? 'animate-pulse' : ''}`} />
               {liveStream ? 'Live Stream Active' : 'Enable Live Stream'}
@@ -187,6 +188,7 @@ export default function DashboardPage() {
               className="btn btn-secondary"
               onClick={() => exportSummaryCSV(analytics || {})}
               style={{ height: 40, padding: '0 16px', fontSize: 13, gap: 6 }}
+              aria-label="Export executive summary as CSV"
             >
               <Download className="w-3.5 h-3.5" /> Export Report CSV
             </button>
@@ -197,6 +199,7 @@ export default function DashboardPage() {
                   key={t}
                   className={`filter-pill${timeRange === t ? ' active' : ''}`}
                   onClick={() => setTimeRange(t)}
+                  aria-label={`Filter by ${t}`}
                 >
                   {t}
                 </button>
@@ -216,10 +219,22 @@ export default function DashboardPage() {
                   onClick={() => setActiveKpiDetail(activeKpiDetail === m.id ? null : m.id)}
                   whileHover={{ scale: 1.015, y: -2 }}
                   style={{ cursor: 'pointer', position: 'relative' }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View details for ${m.label}`}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="metric-card__label">{m.label}</div>
-                    <Info className="w-3.5 h-3.5 text-muted opacity-50" />
+                    <div
+                      style={{
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        color: 'var(--text-muted)',
+                      }}
+                      title="Click for explanation"
+                    >
+                      <Info className="w-3.5 h-3.5 opacity-60 hover:opacity-100" />
+                    </div>
                   </div>
                   <div className={`metric-card__value ${m.cls}`}>{m.value}</div>
                   <div className="metric-card__sub">{m.sub}</div>
@@ -233,17 +248,21 @@ export default function DashboardPage() {
                         top: '100%',
                         left: 0,
                         right: 0,
-                        background: 'var(--surface-high)',
-                        border: '1px solid var(--border-medium)',
+                        background: 'rgba(16, 22, 38, 0.98)',
+                        border: '1px solid rgba(82, 132, 255, 0.35)',
                         borderRadius: 'var(--radius-md)',
-                        padding: '12px 14px',
-                        fontSize: 12,
-                        color: 'var(--text-secondary)',
-                        boxShadow: 'var(--shadow-card)',
+                        padding: '14px 16px',
+                        fontSize: 12.5,
+                        color: 'var(--text-primary)',
+                        boxShadow: '0 16px 40px rgba(0,0,0,0.8), 0 0 20px rgba(49,92,255,0.2)',
                         zIndex: 20,
                         marginTop: 6,
+                        lineHeight: 1.5,
                       }}
                     >
+                      <div style={{ fontWeight: 700, color: 'var(--accent-bright)', marginBottom: 4 }}>
+                        ✦ Metric Attribution:
+                      </div>
                       {m.detail}
                     </motion.div>
                   )}
@@ -251,27 +270,37 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Financial Insights Strip */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginBottom: 32 }}>
+            {/* Financial Insights Strip — Elevated Styling */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 32 }}>
               {[
-                { title: '✦ Payday Window Alignment', desc: 'Recovery probability increases by 3.2x when retrying within 48h of payday (1st–5th of month).' },
-                { title: '◈ Zero Chargeback Guardrail', desc: 'Hard-fail rules blocked 28 stolen/closed card retries, avoiding $4,200 in dispute fees.' },
-                { title: '📈 Cash-Flow Acceleration', desc: 'Automated UPI AutoPay retries recovered ₹18,400 in under 3 hours.' },
+                { title: '✦ Payday Window Alignment', icon: '⚡', desc: 'Recovery probability increases by 3.2x when retrying within 48h of payday (1st–5th of month).' },
+                { title: '◈ Zero Chargeback Guardrail', icon: '🛡️', desc: 'Hard-fail rules blocked 28 stolen/closed card retries, avoiding $4,200 in dispute fees.' },
+                { title: '📈 Cash-Flow Acceleration', icon: '🚀', desc: 'Automated UPI AutoPay retries recovered ₹18,400 in under 3 hours.' },
               ].map((insight) => (
                 <div
                   key={insight.title}
-                  className="card card--padded"
+                  className="card card--padded card--hover"
                   style={{
-                    background: 'rgba(82, 132, 255, 0.05)',
-                    borderColor: 'rgba(82, 132, 255, 0.18)',
-                    padding: '16px 20px',
+                    background: 'linear-gradient(180deg, rgba(16, 22, 38, 0.85) 0%, rgba(11, 16, 29, 0.95) 100%)',
+                    border: '1px solid rgba(82, 132, 255, 0.24)',
+                    boxShadow: 'var(--shadow-card)',
+                    padding: '20px 22px',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-bright)', marginBottom: 4 }}>
-                    {insight.title}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    {insight.desc}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 16 }}>{insight.icon}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                        {insight.title}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                      {insight.desc}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -81,11 +81,14 @@ export default function AnalyticsPage() {
 
   const { funnel = {}, revenue = {}, recovery_by_reason = {}, recovery_by_attempt = [], global_feature_importance = [] } = data || {}
 
-  const totalFailed = Math.round((funnel.total_failed || 167) * mFactor)
-  const hardFailed = Math.round((funnel.hard_failed || 28) * mFactor)
-  const eligible = totalFailed - hardFailed
-  const attempted = Math.round((funnel.retrying || 32) * mFactor + (funnel.recovered || 98) * mFactor)
-  const recovered = Math.round((funnel.recovered || 98) * mFactor)
+  const totalFailed = Math.round((funnel.total_failed || funnel.total_failures || 1240) * mFactor)
+  const hardFailed = Math.round((funnel.hard_failed || funnel.hard_fails_skipped || 148) * mFactor)
+  const eligible = Math.max(totalFailed - hardFailed, 1)
+  const recovered = Math.round((funnel.recovered || 944) * mFactor)
+  const attempted = Math.round(((funnel.retrying || 148) + (funnel.recovered || 944)) * mFactor)
+
+  const baselineRate = funnel.recovery_rate || 0.864
+  const overallRate = Math.min(100, Math.max(0, (selectedMethod === 'all' ? baselineRate : baselineRate * (0.95 + (mFactor - 1.0) * 0.2)) * 100))
 
   const funnelStages = [
     { id: 'failed', name: 'Failed Payments', count: totalFailed, sub: 'Total initial declines captured', fill: '#737A8C' },
@@ -149,6 +152,7 @@ export default function AnalyticsPage() {
                 className={`filter-pill${selectedMethod === id ? ' active' : ''}`}
                 onClick={() => setSelectedMethod(id)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                aria-label={`Filter by ${label}`}
               >
                 <Icon className="w-3.5 h-3.5" /> {label}
               </button>
@@ -161,9 +165,9 @@ export default function AnalyticsPage() {
             {/* Executive KPIs */}
             <div className="metric-grid">
               {[
-                { label: 'Overall Recovery Rate', value: `${((recovered / (eligible || 1)) * 100).toFixed(1)}%`, cls: 'metric-card__value--blue' },
-                { label: 'Recovered Revenue', value: fmtINR(Math.round((revenue.recovered || 48250) * mFactor)), cls: 'metric-card__value--gold' },
-                { label: 'In-Flight Risk', value: fmtINR(Math.round((revenue.at_risk || 12430) * mFactor)), cls: '' },
+                { label: 'Overall Recovery Rate', value: `${overallRate.toFixed(1)}%`, cls: 'metric-card__value--blue' },
+                { label: 'Recovered Revenue', value: fmtINR(Math.round((revenue.recovered || 1119500) * mFactor)), cls: 'metric-card__value--gold' },
+                { label: 'In-Flight Risk', value: fmtINR(Math.round((revenue.at_risk || 176200) * mFactor)), cls: 'metric-card__value--dim' },
                 { label: 'Method Filter', value: currentMethodObj.label, cls: 'metric-card__value--blue' },
               ].map((m) => (
                 <div key={m.label} className="metric-card">
@@ -181,7 +185,7 @@ export default function AnalyticsPage() {
               </div>
 
               <div className="card card--padded" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                   {funnelStages.map((stage, idx) => {
                     const isSel = activeFunnelStage === stage.id
                     return (
@@ -193,28 +197,29 @@ export default function AnalyticsPage() {
                           background: isSel ? 'rgba(82, 132, 255, 0.12)' : 'var(--surface-el)',
                           border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border)'}`,
                           borderRadius: 'var(--radius-md)',
-                          padding: '18px 20px',
+                          padding: '16px 18px',
                           cursor: 'pointer',
                           position: 'relative',
                           transition: 'all 200ms ease',
+                          overflow: 'hidden',
                         }}
                       >
-                        <div style={{ fontSize: 11, fontWeight: 600, color: stage.fill, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: stage.fill, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
                           Stage 0{idx + 1}
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
                           {stage.name}
                         </div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: stage.fill, letterSpacing: '-0.03em' }}>
+                        <div style={{ fontSize: 'clamp(22px, 2.2vw, 28px)', fontWeight: 800, color: stage.fill, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
                           {stage.count}
                         </div>
-                        <div className="text-muted text-xs" style={{ marginTop: 6 }}>
+                        <div className="text-muted text-xs" style={{ marginTop: 6, lineHeight: 1.4 }}>
                           {stage.sub}
                         </div>
 
                         {idx < funnelStages.length - 1 && (
-                          <div style={{ position: 'absolute', right: -10, top: '50%', transform: 'translateY(-50%)', zIndex: 5, color: 'var(--text-muted)' }}>
-                            <ChevronRight className="w-5 h-5" />
+                          <div style={{ position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)', zIndex: 5, color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                            <ChevronRight className="w-4 h-4" />
                           </div>
                         )}
                       </motion.div>

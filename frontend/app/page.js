@@ -193,7 +193,7 @@ export default function HeroPage() {
               }}
             >
               <CheckCircle2 size={15} />
-              +86% Recovery Rate
+              +86.4% Recovery Rate
             </div>
           </motion.div>
 
@@ -204,29 +204,33 @@ export default function HeroPage() {
             transition={{ duration: 0.6, delay: 0.5, ease }}
             style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}
           >
-            <Link href="/playground" className="btn btn-primary" style={{ height: 48, padding: '0 32px', fontSize: 15 }}>
+            <Link href="/playground" className="btn btn-primary" style={{ height: 48, padding: '0 32px', fontSize: 15 }} aria-label="Launch Simulation Playground">
               Launch Simulation Playground <ArrowRight size={17} />
             </Link>
-            <Link href="/dashboard" className="btn btn-secondary" style={{ height: 48, padding: '0 24px', fontSize: 14 }}>
+            <Link href="/dashboard" className="btn btn-secondary" style={{ height: 48, padding: '0 24px', fontSize: 14 }} aria-label="View Executive Dashboard">
               Executive Dashboard
             </Link>
           </motion.div>
 
-          {/* Scroll hint */}
-          <div
+          {/* Scroll hint with animated bouncing motion cue */}
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
               fontSize: 11,
-              color: 'rgba(160, 168, 192, 0.8)',
+              color: 'rgba(160, 168, 192, 0.85)',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
+              cursor: 'pointer',
             }}
+            onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
           >
             <span>Scroll to explore architecture</span>
-            <ChevronDown size={15} className="animate-bounce" />
-          </div>
+            <ChevronDown size={16} color="#5284FF" />
+          </motion.div>
         </div>
       </section>
 

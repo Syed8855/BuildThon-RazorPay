@@ -127,7 +127,7 @@ function FallbackCard() {
 /* ─────────────────────────────────────────────────────────────
    Alinma & Behance Card Motion 3D Scene Component
    ───────────────────────────────────────────────────────────── */
-export default function AlinmaHeroScene({ prefersReduced = false, simStage = null }) {
+export default function AlinmaHeroScene({ prefersReduced = false, simStage = null, hideSleeve = false }) {
   const mouseX = useRef(0)
   const mouseY = useRef(0)
   const scrollProgress = useRef(0)
@@ -195,8 +195,8 @@ export default function AlinmaHeroScene({ prefersReduced = false, simStage = nul
         <pointLight position={[0, 3, -3]} intensity={6.0} color="#315CFF" distance={16} />
         <pointLight position={[3, -4, 2]} intensity={1.2} color="#F2B705" distance={12} />
 
-        {/* 3D Sleeve Dock (Behance Concept) */}
-        <CardSleeveDock scrollProgress={scrollProgress} />
+        {/* 3D Sleeve Dock (Rendered on Hero scroll, omitted in fixed simulator) */}
+        {!hideSleeve && <CardSleeveDock scrollProgress={scrollProgress} />}
 
         {/* Primary Behance/Alinma 3D Bank Card with Bevels & Metallic Chip */}
         <Real3DCard

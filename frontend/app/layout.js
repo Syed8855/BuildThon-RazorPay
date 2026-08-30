@@ -1,6 +1,7 @@
 import './globals.css'
 import GlobalNav from '@/components/GlobalNav'
 import BackgroundVideo from '@/components/BackgroundVideo'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { BackendProvider } from '@/context/BackendContext'
 
 export const metadata = {
@@ -16,7 +17,9 @@ export default function RootLayout({ children }) {
           <BackgroundVideo />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <GlobalNav />
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </div>
         </BackendProvider>
       </body>
