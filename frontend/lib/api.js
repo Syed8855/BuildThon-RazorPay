@@ -22,7 +22,7 @@ export async function apiFetch(path, options = {}) {
 
   for (const url of targets) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), isProduction ? 15000 : 3500);
+    const timeout = setTimeout(() => controller.abort(), isProduction ? 25000 : 3500);
 
     try {
       const res = await fetch(url, {
