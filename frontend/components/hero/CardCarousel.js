@@ -284,11 +284,11 @@ export default function CardCarousel() {
                           boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.18), 0 12px 40px rgba(0,0,0,0.6)',
                         }}
                       >
-                        <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover rounded-[16px]" style={{ opacity: 0.5 }} />
+                        <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover rounded-[16px]" style={{ opacity: 1 }} />
 
                         <div
                           className="absolute inset-0 text-white h-full w-full z-10"
-                          style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.6) 100%)' }}
+                          style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.35) 100%)' }}
                         >
                           {/* Metallic Contact Chip */}
                           <div className="absolute" style={{ left: 20, top: '50%', transform: 'translateY(-50%)' }}>
