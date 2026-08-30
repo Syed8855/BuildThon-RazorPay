@@ -346,58 +346,30 @@ export default function PlaygroundPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ batch_size: batchSize }),
       })
+
       if (!res.ok) {
-        throw new Error(`Batch engine returned HTTP ${res.status}`)
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(errJson.error || errJson.detail || `Batch engine returned HTTP ${res.status}`)
       }
+
       const data = await res.json()
+      if (!data || !data.counts || !Array.isArray(data.records)) {
+        throw new Error('Invalid or incomplete response from batch simulation engine')
+      }
+
       clearInterval(pInterval)
       setBatchProgress(100)
       setTimeout(() => {
         setBatchResult(data)
         setBatchLoading(false)
+        setBatchError(null)
         playSuccessSound()
       }, 300)
     } catch (err) {
       clearInterval(pInterval)
-      // Resilient fallback: compute high-fidelity batch simulation on cold-start/network delay
-      const fakeTotal = batchSize * 3250
-      const rulesRec = fakeTotal * 0.62
-      const mlRec = fakeTotal * 0.78
-      const mockBatch = {
-        batch_size: batchSize,
-        total_attempted_amount: fakeTotal,
-        rules_recovered_amount: rulesRec,
-        ml_recovered_amount: mlRec,
-        rules_recovery_rate: 0.62,
-        ml_recovery_rate: 0.78,
-        uplift_percentage: 16.0,
-        counts: {
-          recovered: Math.round(batchSize * 0.78),
-          hard_failed: Math.round(batchSize * 0.08),
-          escalated_to_human: Math.round(batchSize * 0.06),
-          churned: Math.round(batchSize * 0.04),
-          dnd_blocked: Math.round(batchSize * 0.04),
-          quiet_hours_held: 2,
-        },
-        records: Array.from({ length: Math.min(batchSize, 30) }, (_, i) => ({
-          transaction_id: `txn_batch_${1000 + i}`,
-          amount: Math.round(500 + Math.random() * 8000),
-          failure_reason: FAILURE_REASONS[i % FAILURE_REASONS.length],
-          payment_method: METHODS[i % METHODS.length],
-          rules_action: 'retry_now',
-          ml_action: i % 8 === 0 ? 'escalate_human' : i % 11 === 0 ? 'no_retry' : 'retry_now',
-          ml_probability: 0.45 + (i % 5) * 0.12,
-          status: i % 8 === 0 ? 'escalated_to_human' : i % 11 === 0 ? 'dnd_blocked' : 'recovered',
-          compliance_status: i % 8 === 0 ? 'escalated_to_human' : i % 11 === 0 ? 'dnd_restricted' : 'compliant',
-          plain_english: 'Autonomous ML orchestration decision evaluated cleanly.',
-        })),
-      }
-      setBatchProgress(100)
-      setTimeout(() => {
-        setBatchResult(mockBatch)
-        setBatchLoading(false)
-        playSuccessSound()
-      }, 400)
+      setBatchError({
+        message: err.message || 'Batch simulation service timed out or was unreachable. Please retry.',
+      })
     }
   }
 
@@ -874,10 +846,10 @@ export default function PlaygroundPage() {
                       <TrendingUp className="w-4 h-4 text-accent" />
                     </div>
                     <div className="metric-card__value metric-card__value--gold">
-                      {fmtINR(batchResult.ml_recovered_amount)}
+                      {fmtINR(batchResult?.ml_recovered_amount ?? 0)}
                     </div>
                     <div className="metric-card__sub" style={{ color: '#22c55e', fontWeight: 600 }}>
-                      +{batchResult.uplift_percentage}% Uplift vs Rules Baseline
+                      +{batchResult?.uplift_percentage ?? 0}% Uplift vs Rules Baseline
                     </div>
                   </div>
 
@@ -887,10 +859,10 @@ export default function PlaygroundPage() {
                       <ShieldCheck className="w-4 h-4 text-accent" />
                     </div>
                     <div className="metric-card__value metric-card__value--blue">
-                      {(batchResult.ml_recovery_rate * 100).toFixed(1)}%
+                      {((batchResult?.ml_recovery_rate ?? 0) * 100).toFixed(1)}%
                     </div>
                     <div className="metric-card__sub">
-                      vs {(batchResult.rules_recovery_rate * 100).toFixed(1)}% static rules
+                      vs {((batchResult?.rules_recovery_rate ?? 0) * 100).toFixed(1)}% static rules
                     </div>
                   </div>
 
@@ -900,7 +872,7 @@ export default function PlaygroundPage() {
                       <UserCheck className="w-4 h-4 text-accent" />
                     </div>
                     <div className="metric-card__value" style={{ color: '#F59E0B' }}>
-                      {batchResult.counts.escalated_to_human}
+                      {batchResult?.counts?.escalated_to_human ?? 0}
                     </div>
                     <div className="metric-card__sub">Escalated after max retries</div>
                   </div>
@@ -911,10 +883,10 @@ export default function PlaygroundPage() {
                       <Clock className="w-4 h-4 text-accent" />
                     </div>
                     <div className="metric-card__value metric-card__value--dim">
-                      {batchResult.counts.dnd_blocked + batchResult.counts.quiet_hours_held}
+                      {(batchResult?.counts?.dnd_blocked ?? 0) + (batchResult?.counts?.quiet_hours_held ?? 0)}
                     </div>
                     <div className="metric-card__sub">
-                      {batchResult.counts.dnd_blocked} DND · {batchResult.counts.quiet_hours_held} Quiet Hours
+                      {batchResult?.counts?.dnd_blocked ?? 0} DND · {batchResult?.counts?.quiet_hours_held ?? 0} Quiet Hours
                     </div>
                   </div>
                 </div>
@@ -928,7 +900,7 @@ export default function PlaygroundPage() {
                         Showing sample transactions processed in this batch run with live ML vs Rules decisions
                       </div>
                     </div>
-                    <span className="badge badge--recovered">{batchResult.batch_size} TRANSACTIONS EXECUTED</span>
+                    <span className="badge badge--recovered">{batchResult?.batch_size ?? batchSize} TRANSACTIONS EXECUTED</span>
                   </div>
 
                   <div style={{ overflowX: 'auto' }}>
@@ -945,26 +917,26 @@ export default function PlaygroundPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {batchResult.records?.slice(0, 15).map((r, i) => (
+                        {batchResult?.records?.slice(0, 20).map((r, i) => (
                           <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <td style={{ padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                              {r.transaction_id}
+                              {r?.transaction_id || `txn_${i}`}
                             </td>
-                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>{fmtINR(r.amount)}</td>
+                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>{fmtINR(r?.amount ?? 0)}</td>
                             <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
-                              {r.failure_reason?.replace(/_/g, ' ')}
+                              {r?.failure_reason?.replace(/_/g, ' ') || 'payment_failed'}
                             </td>
                             <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: 12 }}>
-                              {r.rules_action}
+                              {r?.rules_action || 'retry_now'}
                             </td>
                             <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--accent-bright)' }}>
-                              {r.ml_action}
+                              {r?.ml_action || 'retry_now'}
                             </td>
                             <td style={{ padding: '10px 12px', fontFamily: 'var(--font-mono)' }}>
-                              {r.ml_probability != null ? `${(r.ml_probability * 100).toFixed(0)}%` : '—'}
+                              {r?.ml_probability != null ? `${(r.ml_probability * 100).toFixed(0)}%` : '—'}
                             </td>
                             <td style={{ padding: '10px 12px' }}>
-                              <StatusBadge status={r.status} />
+                              <StatusBadge status={r?.status || 'recovered'} />
                             </td>
                           </tr>
                         ))}
@@ -982,12 +954,12 @@ export default function PlaygroundPage() {
       {batchLoading && (
         <VaultaLoadingScreen
           mode="modal"
-          title={`Running Batch Simulation for ${batchSize} Transactions…`}
+          title={`Running batch simulation across ${batchSize} transactions…`}
           subtitles={[
-            'Sampling representative merchant transactions',
-            'Applying DND and hard-fail compliance rules',
-            'Evaluating XGBoost retry confidence scores',
-            'Computing rules baseline vs ML financial uplift',
+            'Evaluating rules-only baseline',
+            'Scoring with XGBoost model',
+            'Computing SHAP attributions',
+            'Aggregating recovery uplift',
           ]}
           elapsedSeconds={batchSeconds}
           error={batchError}
