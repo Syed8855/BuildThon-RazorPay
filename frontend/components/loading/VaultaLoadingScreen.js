@@ -67,15 +67,16 @@ export default function VaultaLoadingScreen({
         {/* 3D Card Loading Container */}
         <motion.div
           key="loader-modal"
-          initial={{ opacity: 0, scale: 0.95, y: 8 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 8 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           style={{
             position: 'fixed',
             top: '50%',
             left: '50%',
-            transform: 'translate(-50%, -50%)',
+            translateX: '-50%',
+            translateY: '-50%',
             width: 'min(500px, 92vw)',
             background: '#070A14',
             border: error ? '1px solid rgba(224, 112, 112, 0.4)' : '1px solid rgba(82, 132, 255, 0.35)',
