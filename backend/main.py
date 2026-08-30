@@ -877,9 +877,26 @@ CHECKOUT_ABANDONMENT_STORE = [
 ]
 
 
+# Server-side authoritative tracker for checkout abandonment nudge counts
+CHECKOUT_NUDGE_TRACKER: Dict[str, int] = {
+    "chk_rzp_9102": 1,
+    "chk_rzp_8471": 1,
+    "chk_rzp_7294": 0,
+    "chk_rzp_6108": 1,
+    "chk_rzp_5023": 3,
+}
+
+
 @app.get("/checkout-abandonment/events")
 def get_checkout_events():
     """Retrieve abandoned checkout stream and recovery telemetry."""
+    # Synchronize store with server-side nudge tracker
+    for c in CHECKOUT_ABANDONMENT_STORE:
+        cid = c["checkout_id"]
+        c["nudge_count"] = CHECKOUT_NUDGE_TRACKER.get(cid, 0)
+        if c["nudge_count"] >= 3:
+            c["status"] = "expired"
+
     total_carts = len(CHECKOUT_ABANDONMENT_STORE)
     total_val = sum(c["cart_value"] for c in CHECKOUT_ABANDONMENT_STORE)
     recovered_val = sum(c["recovered_amount"] for c in CHECKOUT_ABANDONMENT_STORE)
@@ -896,17 +913,20 @@ def get_checkout_events():
 
 @app.post("/checkout-abandonment/simulate")
 def simulate_checkout_recovery(req: CheckoutAbandonmentEvent):
-    """Trigger automated recovery sequence for an abandoned cart with bounded 3-nudge cap."""
+    """Trigger automated recovery sequence for an abandoned cart with server-side bounded 3-nudge cap."""
     max_nudges = req.max_nudges or 3
-    current_nudges = req.nudge_count or 1
-
-    # Bounded 3-nudge workflow enforcement
-    if current_nudges > max_nudges or req.status == "expired":
+    
+    # Server-side authoritative state lookup
+    prev_nudges = CHECKOUT_NUDGE_TRACKER.get(req.checkout_id, 0)
+    
+    # If already at or beyond cap, terminate immediately
+    if prev_nudges >= max_nudges or req.status == "expired":
+        CHECKOUT_NUDGE_TRACKER[req.checkout_id] = max(prev_nudges, max_nudges)
         return {
             "checkout_id": req.checkout_id,
             "status": "expired",
             "is_terminal": True,
-            "nudge_count": current_nudges,
+            "nudge_count": CHECKOUT_NUDGE_TRACKER[req.checkout_id],
             "max_nudges": max_nudges,
             "message": f"Maximum re-engagement limit reached ({max_nudges}/{max_nudges} nudges). Recovery sequence terminated.",
             "intervention": None,
@@ -914,16 +934,29 @@ def simulate_checkout_recovery(req: CheckoutAbandonmentEvent):
             "projected_conversion_probability": 0.0,
         }
 
+    # Increment authoritative server-side counter
+    new_nudge_count = prev_nudges + 1
+    CHECKOUT_NUDGE_TRACKER[req.checkout_id] = new_nudge_count
+    is_terminal = new_nudge_count >= max_nudges
+
     discount = req.discount_offered_pct
     link = f"https://pay.rzp.io/{req.checkout_id}?rec={req.recovery_channel[:2]}{discount}"
     rec_val = round(req.cart_value * (1 - discount / 100), 2)
-    is_terminal = current_nudges >= max_nudges
+
+    # Update in-memory store if event exists
+    for c in CHECKOUT_ABANDONMENT_STORE:
+        if c["checkout_id"] == req.checkout_id:
+            c["nudge_count"] = new_nudge_count
+            c["status"] = "expired" if is_terminal else "recovered"
+            if not is_terminal:
+                c["recovered_amount"] = rec_val
+            break
 
     return {
         "checkout_id": req.checkout_id,
         "status": "expired" if is_terminal else "recovered",
         "is_terminal": is_terminal,
-        "nudge_count": current_nudges,
+        "nudge_count": new_nudge_count,
         "max_nudges": max_nudges,
         "intervention": {
             "channel": req.recovery_channel,
