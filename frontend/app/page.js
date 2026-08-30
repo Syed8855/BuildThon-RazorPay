@@ -72,11 +72,11 @@ export default function HeroPage() {
             position: 'relative',
             zIndex: 10,
             background: 'linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.68) 55%, transparent 100%)',
-            padding: '120px 24px 48px',
+            padding: 'clamp(60px, 12vh, 120px) clamp(16px, 4vw, 24px) clamp(32px, 6vh, 48px)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 26,
+            gap: 'clamp(16px, 2.8vh, 26px)',
             textAlign: 'center',
           }}
         >
@@ -89,13 +89,13 @@ export default function HeroPage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              padding: '6px 18px',
+              padding: '6px 16px',
               borderRadius: 'var(--radius-pill)',
               background: 'rgba(82, 132, 255, 0.16)',
               backdropFilter: 'blur(12px)',
               border: '1px solid rgba(82, 132, 255, 0.35)',
               boxShadow: '0 0 24px rgba(49, 92, 255, 0.25)',
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: 700,
               letterSpacing: '0.09em',
               color: '#A0B8FF',
@@ -112,9 +112,9 @@ export default function HeroPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease }}
             style={{
-              fontSize: 'clamp(46px, 6.4vw, 86px)',
+              fontSize: 'clamp(34px, 7vw, 86px)',
               fontWeight: 800,
-              lineHeight: 1.02,
+              lineHeight: 1.04,
               letterSpacing: '-0.04em',
               color: '#FFFFFF',
               margin: 0,
@@ -139,8 +139,8 @@ export default function HeroPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3, ease }}
             style={{
-              fontSize: 'clamp(16px, 2.0vw, 20px)',
-              lineHeight: 1.6,
+              fontSize: 'clamp(14.5px, 2.0vw, 20px)',
+              lineHeight: 1.55,
               color: 'rgba(215, 222, 240, 0.92)',
               margin: 0,
               maxWidth: 580,
@@ -155,7 +155,7 @@ export default function HeroPage() {
             initial={prefersReduced ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.4, ease }}
-            style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}
+            style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}
           >
             <div
               style={{
@@ -163,8 +163,8 @@ export default function HeroPage() {
                 backdropFilter: 'blur(16px)',
                 border: '1px solid rgba(82, 132, 255, 0.35)',
                 borderRadius: 'var(--radius-pill)',
-                padding: '8px 18px',
-                fontSize: 12.5,
+                padding: '6px 14px',
+                fontSize: 12,
                 fontWeight: 600,
                 color: '#FFFFFF',
                 display: 'flex',
@@ -182,8 +182,8 @@ export default function HeroPage() {
                 backdropFilter: 'blur(16px)',
                 border: '1px solid rgba(242, 183, 5, 0.35)',
                 borderRadius: 'var(--radius-pill)',
-                padding: '8px 18px',
-                fontSize: 12.5,
+                padding: '6px 14px',
+                fontSize: 12,
                 fontWeight: 600,
                 color: '#F2B705',
                 display: 'flex',
@@ -192,7 +192,7 @@ export default function HeroPage() {
                 boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(242,183,5,0.2)',
               }}
             >
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={14} />
               +86.4% Recovery Rate
             </div>
           </motion.div>
@@ -202,13 +202,13 @@ export default function HeroPage() {
             initial={prefersReduced ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5, ease }}
-            style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}
+            style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}
           >
-            <Link href="/playground" className="btn btn-primary" style={{ height: 48, padding: '0 32px', fontSize: 15 }} aria-label="Launch Simulation Playground">
-              Launch Simulation Playground <ArrowRight size={17} />
+            <Link href="/playground" className="btn btn-primary" style={{ height: 44, padding: '0 24px', fontSize: 14 }} aria-label="Launch Simulation Playground">
+              Launch Simulator <ArrowRight size={16} />
             </Link>
-            <Link href="/dashboard" className="btn btn-secondary" style={{ height: 48, padding: '0 24px', fontSize: 14 }} aria-label="View Executive Dashboard">
-              Executive Dashboard
+            <Link href="/dashboard" className="btn btn-secondary" style={{ height: 44, padding: '0 20px', fontSize: 13.5 }} aria-label="View Executive Dashboard">
+              Dashboard
             </Link>
           </motion.div>
 
@@ -225,6 +225,7 @@ export default function HeroPage() {
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               cursor: 'pointer',
+              marginTop: 4,
             }}
             onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
           >
@@ -234,9 +235,9 @@ export default function HeroPage() {
         </div>
       </section>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          SCROLL 2 â€” HERO EXTENSION (Continuous Story & Metric Cards)
-      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ═══════════════════════════════════════════════════════════
+          SCROLL 2 — HERO EXTENSION (Continuous Story & Metric Cards)
+      ════════════════════════════════════════════════════════════ */}
       <section
         style={{
           position: 'relative',
