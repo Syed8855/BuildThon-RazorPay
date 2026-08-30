@@ -31,107 +31,164 @@ const CHANNEL_ICONS = {
 }
 
 export default function CheckoutRecoveryPage() {
-  const [events, setEvents] = useState(MOCK_CHECKOUT_EVENTS)
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('checkout_recovery_events_v1')
+        if (saved) return JSON.parse(saved)
+      } catch {}
+    }
+    return MOCK_CHECKOUT_EVENTS
+  })
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [discountPct, setDiscountPct] = useState(5)
   const [activeChannel, setActiveChannel] = useState('whatsapp')
   const [simulatingId, setSimulatingId] = useState(null)
   const [recoveryModal, setRecoveryModal] = useState(null)
+  const [sessionRestoredNotice, setSessionRestoredNotice] = useState(null)
+
+  // Persist session updates
+  useEffect(() => {
+    if (typeof window !== 'undefined' && events && events.length > 0) {
+      try {
+        sessionStorage.setItem('checkout_recovery_events_v1', JSON.stringify(events))
+      } catch {}
+    }
+  }, [events])
+
+  // Check URL params for session re-engagement
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const targetId = params.get('checkout_id') || params.get('session_id')
+      if (targetId) {
+        const found = events.find((e) => e.checkout_id === targetId)
+        if (found) {
+          setSelectedEvent(found)
+          setSessionRestoredNotice(`Active recovery session restored for ${found.customer_name} (${found.checkout_id})`)
+        }
+      }
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/checkout-abandonment/events')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to fetch')
+        return r.json()
+      })
       .then((d) => {
-        if (d.events && d.events.length > 0) setEvents(d.events)
+        if (d && Array.isArray(d.events) && d.events.length > 0) {
+          // Merge with any local in-flight session updates
+          setEvents((prev) => {
+            const map = new Map(prev.map((e) => [e.checkout_id, e]))
+            return d.events.map((e) => map.get(e.checkout_id) || e)
+          })
+        }
       })
       .catch(() => {})
   }, [])
 
   const totalCarts = events.length
-  const totalAbandonedValue = events.reduce((acc, c) => acc + c.cart_value, 0)
+  const totalAbandonedValue = events.reduce((acc, c) => acc + (c.cart_value || 0), 0)
   const recoveredValue = events.reduce((acc, c) => acc + (c.recovered_amount || 0), 0)
   const recoveredCount = events.filter((c) => c.status === 'recovered').length
   const convRate = totalCarts > 0 ? (recoveredCount / totalCarts) * 100 : 0
 
   const handleTriggerRecovery = async (event) => {
+    if (!event || !event.checkout_id) return
+
     const currentNudges = event.nudge_count || 1
     const nextNudge = currentNudges + 1
     const isTerminal = nextNudge >= 3
 
     setSimulatingId(event.checkout_id)
+    setSelectedEvent(event)
     playScanSound()
+
+    const fallbackResult = {
+      checkout_id: event.checkout_id,
+      intervention: {
+        channel: activeChannel,
+        scheduled_after_minutes: 15,
+        discount_offered_pct: discountPct,
+        recovery_url: `https://pay.rzp.io/${event.checkout_id}?rec=${activeChannel.slice(0, 2)}${discountPct}`,
+        copy: `Hi ${event.customer_name || 'there'}, your cart is waiting! Complete your order now and enjoy ${discountPct}% off: https://pay.rzp.io/${event.checkout_id}?rec=${activeChannel.slice(0, 2)}${discountPct}`,
+      },
+      projected_recovery_value: (event.cart_value || 0) * (1 - discountPct / 100),
+      projected_conversion_probability: activeChannel === 'whatsapp' ? 0.72 : 0.48,
+      nudge_count: nextNudge,
+      isTerminal,
+    }
 
     try {
       const res = await fetch('/api/checkout-abandonment/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...event,
-          nudge_count: nextNudge,
-          max_nudges: 3,
+          checkout_id: event.checkout_id,
+          customer_name: event.customer_name || 'Customer',
+          customer_email: event.customer_email || 'customer@example.com',
+          customer_phone: event.customer_phone || '+91 98000 00000',
+          cart_value: event.cart_value || 0,
+          items: Array.isArray(event.items) ? event.items : [],
+          abandoned_at_minutes_ago: event.abandoned_at_minutes_ago || 15,
+          abandonment_stage: event.abandonment_stage || 'payment_step',
           recovery_channel: activeChannel,
           discount_offered_pct: discountPct,
+          recovery_link: event.recovery_link || `https://pay.rzp.io/${event.checkout_id}`,
+          nudge_count: nextNudge,
+          max_nudges: 3,
         }),
       })
-      const result = await res.json()
-      setTimeout(() => {
-        setSimulatingId(null)
-        setRecoveryModal({
-          ...result,
-          nudge_count: nextNudge,
-          isTerminal,
-        })
-        // Mark event with bounded workflow state
-        setEvents((prev) =>
-          prev.map((e) =>
-            e.checkout_id === event.checkout_id
-              ? {
-                  ...e,
-                  status: isTerminal ? 'expired' : 'recovered',
-                  nudge_count: nextNudge,
-                  recovered_amount: result.projected_recovery_value,
-                  recovery_channel: activeChannel,
-                  discount_offered_pct: discountPct,
-                }
-              : e
-          )
-        )
-        playSuccessSound()
-      }, 1200)
-    } catch {
-      setTimeout(() => {
-        setSimulatingId(null)
-        const mockResult = {
-          checkout_id: event.checkout_id,
-          intervention: {
-            channel: activeChannel,
-            scheduled_after_minutes: 15,
-            discount_offered_pct: discountPct,
-            recovery_url: `https://pay.rzp.io/${event.checkout_id}?rec=${activeChannel.slice(0, 2)}${discountPct}`,
-            copy: `Hi ${event.customer_name}, your cart is waiting! Complete your order now and enjoy ${discountPct}% off: https://pay.rzp.io/${event.checkout_id}?rec=${activeChannel.slice(0, 2)}${discountPct}`,
-          },
-          projected_recovery_value: event.cart_value * (1 - discountPct / 100),
-          projected_conversion_probability: activeChannel === 'whatsapp' ? 0.72 : 0.48,
-          nudge_count: nextNudge,
-          isTerminal,
+
+      let finalResult = fallbackResult
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.intervention) {
+          finalResult = {
+            ...data,
+            nudge_count: nextNudge,
+            isTerminal,
+          }
         }
-        setRecoveryModal(mockResult)
-        setEvents((prev) =>
-          prev.map((e) =>
-            e.checkout_id === event.checkout_id
-              ? {
-                  ...e,
-                  status: isTerminal ? 'expired' : 'recovered',
-                  nudge_count: nextNudge,
-                  recovered_amount: mockResult.projected_recovery_value,
-                  recovery_channel: activeChannel,
-                  discount_offered_pct: discountPct,
-                }
-              : e
-          )
+      }
+
+      setSimulatingId(null)
+      setRecoveryModal(finalResult)
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.checkout_id === event.checkout_id
+            ? {
+                ...e,
+                status: isTerminal ? 'expired' : 'recovered',
+                nudge_count: nextNudge,
+                recovered_amount: finalResult.projected_recovery_value || e.cart_value,
+                recovery_channel: activeChannel,
+                discount_offered_pct: discountPct,
+              }
+            : e
         )
-        playSuccessSound()
-      }, 1200)
+      )
+      playSuccessSound()
+    } catch {
+      setSimulatingId(null)
+      setRecoveryModal(fallbackResult)
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.checkout_id === event.checkout_id
+            ? {
+                ...e,
+                status: isTerminal ? 'expired' : 'recovered',
+                nudge_count: nextNudge,
+                recovered_amount: fallbackResult.projected_recovery_value,
+                recovery_channel: activeChannel,
+                discount_offered_pct: discountPct,
+              }
+            : e
+        )
+      )
+      playSuccessSound()
     }
   }
 
@@ -154,6 +211,38 @@ export default function CheckoutRecoveryPage() {
             </p>
           </div>
         </div>
+
+        {/* Session Restored Feedback Banner */}
+        {sessionRestoredNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              marginBottom: 20,
+              padding: '12px 18px',
+              background: 'rgba(82, 132, 255, 0.12)',
+              border: '1px solid rgba(82, 132, 255, 0.35)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 13,
+              color: 'var(--accent-bright)',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>✦</span> {sessionRestoredNotice}
+            </div>
+            <button
+              onClick={() => setSessionRestoredNotice(null)}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-bright)', cursor: 'pointer', fontSize: 16 }}
+              aria-label="Dismiss session restored notice"
+            >
+              ×
+            </button>
+          </motion.div>
+        )}
 
         {/* Top KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
@@ -390,9 +479,9 @@ export default function CheckoutRecoveryPage() {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'flex-end', paddingTop: 16 }}>
                 <div className="phone-bubble phone-bubble--incoming">
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Order Pending</div>
-                  <div>Hi {selectedEvent?.customer_name || events[0]?.customer_name}, you left items in your cart:</div>
+                  <div>Hi {selectedEvent?.customer_name || events[0]?.customer_name || 'Customer'}, you left items in your cart:</div>
                   <div style={{ fontWeight: 600, color: 'var(--accent-bright)', margin: '4px 0' }}>
-                    {(selectedEvent || events[0])?.items.join(', ')} ({fmtINR((selectedEvent || events[0])?.cart_value)})
+                    {(selectedEvent || events[0])?.items?.join(', ') || 'Items in cart'} ({fmtINR((selectedEvent || events[0])?.cart_value)})
                   </div>
                 </div>
 

@@ -133,18 +133,20 @@ class BatchSimulateRequest(BaseModel):
 
 class CheckoutAbandonmentEvent(BaseModel):
     checkout_id: str
-    customer_name: str
-    customer_email: str
+    customer_name: str = "Customer"
+    customer_email: str = "customer@example.com"
     customer_phone: Optional[str] = None
-    cart_value: float
-    items: List[str]
-    abandoned_at_minutes_ago: int
-    abandonment_stage: str
+    cart_value: float = 0.0
+    items: List[str] = Field(default_factory=list)
+    abandoned_at_minutes_ago: int = 15
+    abandonment_stage: str = "payment_step"
     recovery_channel: str = "whatsapp"
     discount_offered_pct: int = 5
-    recovery_link: str
+    recovery_link: Optional[str] = None
     status: str = "pending"
     recovered_amount: float = 0.0
+    nudge_count: Optional[int] = 1
+    max_nudges: Optional[int] = 3
 
 
 class InvoiceRecord(BaseModel):
