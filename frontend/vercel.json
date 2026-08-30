@@ -5,11 +5,5 @@
   "installCommand": "npm install",
   "env": {
     "FASTAPI_BASE_URL": "https://payment-recovery-api.onrender.com"
-  },
-  "crons": [
-    {
-      "path": "/api/cron/warm-backend",
-      "schedule": "*/10 * * * *"
-    }
-  ]
+  }
 }
