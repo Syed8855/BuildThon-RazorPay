@@ -510,11 +510,51 @@ export default function PlaygroundPage() {
             </div>
 
             {/* Form & Diagnostics Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 390px) 1fr', gap: 24, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 400px) 1fr', gap: 24, alignItems: 'start' }}>
               {/* Input Configuration Panel */}
               <div className="card card--padded" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 2 }}>
-                  Payment Failure Parameters
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em' }}>
+                    Failure Simulation Parameters
+                  </div>
+                  <span className="badge badge--retrying" style={{ fontSize: 10 }}>INTERACTIVE</span>
+                </div>
+
+                {/* Scenario Presets */}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: '0.06em' }}>
+                    QUICK SCENARIO PRESETS
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    {[
+                      {
+                        label: '⚡ Payday Retry',
+                        params: { failure_reason: 'insufficient_funds', amount: 1499, payment_method: 'card', customer_segment: 'returning', attempt_number: 2, is_near_payday: true, is_dnd_active: false }
+                      },
+                      {
+                        label: '🛡️ Hard Decline',
+                        params: { failure_reason: 'card_expired', amount: 2499, payment_method: 'card', customer_segment: 'standard', attempt_number: 1, is_near_payday: false, is_dnd_active: false }
+                      },
+                      {
+                        label: '📵 DND Registry',
+                        params: { failure_reason: 'insufficient_funds', amount: 999, payment_method: 'upi', customer_segment: 'high_value', attempt_number: 1, is_near_payday: false, is_dnd_active: true }
+                      },
+                      {
+                        label: '🏢 High ARR SaaS',
+                        params: { failure_reason: 'network_timeout', amount: 14999, payment_method: 'netbanking', customer_segment: 'high_value', attempt_number: 1, is_near_payday: true, is_dnd_active: false }
+                      },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setForm((prev) => ({ ...prev, ...preset.params }))}
+                        style={{ height: 32, padding: '0 8px', fontSize: 11, fontWeight: 600, justifyContent: 'flex-start' }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <Field label="Failure reason *" error={errors.failure_reason}>

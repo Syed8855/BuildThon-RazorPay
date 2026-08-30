@@ -1,5 +1,5 @@
-// StatusBadge — UI_SPEC.md shared component
-// Pill shape, status color at 12% opacity bg, full-strength text.
+// StatusBadge — Precision Fintech Status Indicator
+// Specular pill with luminous dot indicator
 
 const STATUS_MAP = {
   recovered:          { cls: 'badge--recovered', label: 'Recovered' },
@@ -12,13 +12,15 @@ const STATUS_MAP = {
   dnd_restricted:     { cls: 'badge--churned',   label: 'Skipped (DND)' },
   quiet_hours_held:   { cls: 'badge--pending',   label: 'Quiet Hours Hold' },
   skipped_compliance: { cls: 'badge--churned',   label: 'Compliance Hold' },
+  expired:            { cls: 'badge--churned',   label: 'Expired (Max 3)' },
+  escalated_to_legal: { cls: 'badge--escalated', label: 'Legal Review' },
   success:            { cls: 'badge--recovered', label: 'Success' },
   fail:               { cls: 'badge--failed',    label: 'Failed' },
   not_attempted:      { cls: 'badge--churned',   label: 'Not attempted' },
 };
 
 export default function StatusBadge({ status, label }) {
-  const def = STATUS_MAP[status] || { cls: 'badge--pending', label: status };
+  const def = STATUS_MAP[status] || { cls: 'badge--pending', label: status || 'Pending' };
   return (
     <span className={`badge ${def.cls}`}>
       {label ?? def.label}

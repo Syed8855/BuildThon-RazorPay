@@ -218,7 +218,13 @@ export default function DashboardPage() {
                   className="metric-card"
                   onClick={() => setActiveKpiDetail(activeKpiDetail === m.id ? null : m.id)}
                   whileHover={{ scale: 1.015, y: -2 }}
-                  style={{ cursor: 'pointer', position: 'relative' }}
+                  style={{
+                    cursor: 'pointer',
+                    position: 'relative',
+                    background: 'linear-gradient(180deg, rgba(14, 20, 36, 0.92) 0%, rgba(10, 15, 30, 0.96) 100%)',
+                    border: '1px solid var(--border)',
+                    boxShadow: 'var(--specular-card)',
+                  }}
                   role="button"
                   tabIndex={0}
                   aria-label={`View details for ${m.label}`}
@@ -237,7 +243,21 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className={`metric-card__value ${m.cls}`}>{m.value}</div>
-                  <div className="metric-card__sub">{m.sub}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: m.id === 'arr' ? 'rgba(242, 183, 5, 0.12)' : 'rgba(82, 132, 255, 0.12)',
+                        color: m.id === 'arr' ? 'var(--status-gold)' : 'var(--accent-bright)',
+                      }}
+                    >
+                      {m.id === 'arr' ? '✦ +14.2% ARR' : m.id === 'rate' ? '● ML Uplift' : 'SALVAGED'}
+                    </span>
+                    <span className="metric-card__sub">{m.sub}</span>
+                  </div>
 
                   {activeKpiDetail === m.id && (
                     <motion.div
