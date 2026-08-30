@@ -1,5 +1,6 @@
 import './globals.css'
 import GlobalNav from '@/components/GlobalNav'
+import BackgroundVideo from '@/components/BackgroundVideo'
 import { BackendProvider } from '@/context/BackendContext'
 
 export const metadata = {
@@ -10,12 +11,16 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
+      <body style={{ position: 'relative', background: '#000000', minHeight: '100vh', overflowX: 'hidden' }}>
         <BackendProvider>
-          <GlobalNav />
-          {children}
+          <BackgroundVideo />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <GlobalNav />
+            {children}
+          </div>
         </BackendProvider>
       </body>
     </html>
   )
 }
+

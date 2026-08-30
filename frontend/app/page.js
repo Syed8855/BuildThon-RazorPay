@@ -1,29 +1,24 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ChevronDown, ShieldCheck, Cpu, Zap, CheckCircle2 } from 'lucide-react'
-import FloatingRevenueTest from '@/components/hero/FloatingRevenueTest'
 
-const CardCarousel = dynamic(() => import('@/components/hero/CardCarousel'), {
-  ssr: false,
-  loading: () => null,
-})
+const HERO_VIDEO_URL =
+  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260506_030111_a9e15665-d379-4a7f-8116-695bbe452ad1.mp4'
 
 const ease = [0.22, 1, 0.36, 1]
 
 export default function HeroPage() {
   const prefersReduced = useReducedMotion()
-  const [simStage, setSimStage] = useState('IDLE')
 
   return (
-    <div style={{ fontFamily: 'var(--font)', background: 'transparent', color: 'var(--text-primary)', position: 'relative', overflowX: 'hidden' }}>
+    <div style={{ fontFamily: 'var(--font)', background: '#000000', color: 'var(--text-primary)', position: 'relative', overflowX: 'hidden' }}>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          SCROLL 1 â€” HERO: Full-screen Ferris Wheel + Bottom Scrim
-      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ═══════════════════════════════════════════════════════════
+          SCROLL 1 — HERO: Full-screen Cinematic Video Background
+      ════════════════════════════════════════════════════════════ */}
       <section
         style={{
           position: 'relative',
@@ -32,37 +27,56 @@ export default function HeroPage() {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          justifyContent: 'flex-end',
         }}
       >
-        {/* â”€â”€ Full-screen Ferris Wheel Card Layer â”€â”€ */}
+        {/* ── Full-screen Video Background ── */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             zIndex: 1,
             pointerEvents: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            overflow: 'hidden',
           }}
         >
-          <CardCarousel />
+          <video
+            src={HERO_VIDEO_URL}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              filter: 'brightness(0.9) contrast(1.08)',
+            }}
+          />
+
+          {/* Cinematic lighting gradient overlays for optimal text contrast */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 75%, rgba(0,0,0,0.92) 100%)',
+            }}
+          />
         </div>
 
-        {/* â”€â”€ Bottom Text Scrim Zone â”€â”€ */}
+        {/* ── Bottom Text & Action Zone ── */}
         <div
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
+            position: 'relative',
             zIndex: 10,
-            background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 70%, transparent 100%)',
-            padding: '80px 24px 48px',
+            background: 'linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.68) 55%, transparent 100%)',
+            padding: '120px 24px 48px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 28,
+            gap: 26,
             textAlign: 'center',
           }}
         >
@@ -77,9 +91,10 @@ export default function HeroPage() {
               gap: 8,
               padding: '6px 18px',
               borderRadius: 'var(--radius-pill)',
-              background: 'rgba(82, 132, 255, 0.14)',
-              border: '1px solid rgba(82, 132, 255, 0.3)',
-              boxShadow: '0 0 24px rgba(49, 92, 255, 0.2)',
+              background: 'rgba(82, 132, 255, 0.16)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(82, 132, 255, 0.35)',
+              boxShadow: '0 0 24px rgba(49, 92, 255, 0.25)',
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: '0.09em',
@@ -97,12 +112,13 @@ export default function HeroPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease }}
             style={{
-              fontSize: 'clamp(48px, 6.2vw, 88px)',
+              fontSize: 'clamp(46px, 6.4vw, 86px)',
               fontWeight: 800,
               lineHeight: 1.02,
               letterSpacing: '-0.04em',
               color: '#FFFFFF',
               margin: 0,
+              textShadow: '0 4px 24px rgba(0,0,0,0.6)',
             }}
           >
             Recover more.<br />
@@ -125,9 +141,10 @@ export default function HeroPage() {
             style={{
               fontSize: 'clamp(16px, 2.0vw, 20px)',
               lineHeight: 1.6,
-              color: 'rgba(160, 168, 192, 0.9)',
+              color: 'rgba(215, 222, 240, 0.92)',
               margin: 0,
-              maxWidth: 560,
+              maxWidth: 580,
+              textShadow: '0 2px 12px rgba(0,0,0,0.7)',
             }}
           >
             Turn failed payment declines into salvaged recurring revenue with zero issuer friction.
@@ -144,10 +161,10 @@ export default function HeroPage() {
               style={{
                 background: 'rgba(11, 16, 29, 0.85)',
                 backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(82, 132, 255, 0.3)',
+                border: '1px solid rgba(82, 132, 255, 0.35)',
                 borderRadius: 'var(--radius-pill)',
-                padding: '8px 16px',
-                fontSize: 12,
+                padding: '8px 18px',
+                fontSize: 12.5,
                 fontWeight: 600,
                 color: '#FFFFFF',
                 display: 'flex',
@@ -157,7 +174,7 @@ export default function HeroPage() {
               }}
             >
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5284FF', boxShadow: '0 0 10px #5284FF' }} />
-              âš¡ 0.04s ML Inference
+              ⚡ 0.04s ML Inference
             </div>
             <div
               style={{
@@ -165,8 +182,8 @@ export default function HeroPage() {
                 backdropFilter: 'blur(16px)',
                 border: '1px solid rgba(242, 183, 5, 0.35)',
                 borderRadius: 'var(--radius-pill)',
-                padding: '8px 16px',
-                fontSize: 12,
+                padding: '8px 18px',
+                fontSize: 12.5,
                 fontWeight: 600,
                 color: '#F2B705',
                 display: 'flex',
@@ -175,7 +192,7 @@ export default function HeroPage() {
                 boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(242,183,5,0.2)',
               }}
             >
-              <CheckCircle2 size={14} />
+              <CheckCircle2 size={15} />
               +86% Recovery Rate
             </div>
           </motion.div>
@@ -202,7 +219,7 @@ export default function HeroPage() {
               alignItems: 'center',
               gap: 6,
               fontSize: 11,
-              color: 'rgba(106, 114, 134, 0.8)',
+              color: 'rgba(160, 168, 192, 0.8)',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
             }}
