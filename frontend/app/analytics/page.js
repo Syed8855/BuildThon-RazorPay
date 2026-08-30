@@ -111,7 +111,9 @@ export default function AnalyticsPage() {
   }))
 
   return (
-    <div className="page">
+    <div className="page" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div className="ambient-glow-bg" />
+
       {/* 3D Vaulta Loading Experience if backend is warming up */}
       <AnimatePresence>
         {showVaulta && !dataLoaded && (
@@ -122,14 +124,14 @@ export default function AnalyticsPage() {
         )}
       </AnimatePresence>
 
-      <div className="container">
+      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
           <div>
-            <div className="eyebrow">
+            <div className="eyebrow" style={{ background: 'rgba(82, 132, 255, 0.12)', border: '1px solid rgba(82, 132, 255, 0.25)', boxShadow: '0 0 16px rgba(49, 92, 255, 0.18)' }}>
               <span className="eyebrow__dot" /> INTELLIGENCE & ANALYTICS
             </div>
-            <h1 style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.03em', marginTop: 8 }}>
+            <h1 style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.04em', marginTop: 10 }}>
               Explore Recovery Patterns
             </h1>
             <p className="page-hdr__sub" style={{ margin: 0 }}>

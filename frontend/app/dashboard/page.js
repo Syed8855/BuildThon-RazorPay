@@ -143,7 +143,9 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="page">
+    <div className="page" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div className="ambient-glow-bg" />
+
       <AnimatePresence>
         {showVaulta && !dataLoaded && (
           <VaultaLoadingScreen
@@ -153,14 +155,14 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      <div className="container">
+      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
           <div>
-            <div className="eyebrow">
+            <div className="eyebrow" style={{ background: 'rgba(82, 132, 255, 0.12)', border: '1px solid rgba(82, 132, 255, 0.25)', boxShadow: '0 0 16px rgba(49, 92, 255, 0.18)' }}>
               <span className="eyebrow__dot" /> FINANCIAL COMMAND CENTER
             </div>
-            <h1 style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.04em', marginTop: 8 }}>
+            <h1 style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.04em', marginTop: 10 }}>
               Executive Dashboard
             </h1>
             <p className="page-hdr__sub" style={{ margin: 0 }}>

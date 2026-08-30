@@ -231,12 +231,16 @@ export default function DesignDecisionsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="container">
+    <div className="page" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div className="ambient-glow-bg" />
+
+      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         {/* Header */}
         <div className="page-hdr">
-          <div className="eyebrow"><span className="eyebrow__dot" /> TECHNICAL STORY</div>
-          <h1>Design Decisions & Architecture</h1>
+          <div className="eyebrow" style={{ background: 'rgba(82, 132, 255, 0.12)', border: '1px solid rgba(82, 132, 255, 0.25)', boxShadow: '0 0 16px rgba(49, 92, 255, 0.18)' }}>
+            <span className="eyebrow__dot" /> TECHNICAL STORY
+          </div>
+          <h1 style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-0.04em', marginTop: 10 }}>Design Decisions & Architecture</h1>
           <p className="page-hdr__sub">
             An interactive technical story — inspect system architecture, decision logic, and why every tradeoff was made.
           </p>

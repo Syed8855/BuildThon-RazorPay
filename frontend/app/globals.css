@@ -69,6 +69,28 @@
   --dur-slow: 450ms;
 }
 
+/* ─── Ambient Glow & Glass Helper Classes ────────────────────── */
+.ambient-glow-bg {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(800px, 90vw);
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(49, 92, 255, 0.15) 0%, rgba(242, 183, 5, 0.05) 50%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glass-card-hero {
+  background: rgba(11, 16, 29, 0.82) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(82, 132, 255, 0.25) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 28px rgba(49, 92, 255, 0.15) !important;
+}
+
 /* ─── Reset ──────────────────────────────────────────────────── */
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; scroll-behavior: smooth; }
