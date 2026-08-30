@@ -33,6 +33,11 @@ const AlinmaHeroScene = dynamic(() => import('@/components/hero/AlinmaHeroScene'
   loading: () => null,
 })
 
+const VaultaLoadingScene = dynamic(() => import('@/components/loading/VaultaLoadingScene'), {
+  ssr: false,
+  loading: () => null,
+})
+
 const ease = [0.22, 1, 0.36, 1]
 
 const FAILURE_REASONS = [
