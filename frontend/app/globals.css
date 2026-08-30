@@ -103,8 +103,7 @@ body {
   color: var(--text-primary);
   background: var(--bg-primary);
   background-image: 
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(49, 92, 255, 0.16), transparent),
-    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(242, 183, 5, 0.06), transparent);
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(49, 92, 255, 0.12), transparent);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

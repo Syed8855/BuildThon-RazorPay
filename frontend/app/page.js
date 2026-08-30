@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
@@ -20,89 +20,89 @@ export default function HeroPage() {
 
   return (
     <div style={{ fontFamily: 'var(--font)', background: 'transparent', color: 'var(--text-primary)', position: 'relative', overflowX: 'hidden' }}>
-      
-      {/* ── Fixed Centered 3D Card Layer ── */}
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1,
-          pointerEvents: 'none', // Critical: Never intercept navigation or clicks
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {/* Cinematic Radial Ambient Light Glow */}
-        <div
-          style={{
-            position: 'absolute',
-            width: 'min(900px, 94vw)',
-            height: 580,
-            borderRadius: '50%',
-            background:
-              simStage === 'FAILED'
-                ? 'radial-gradient(ellipse, rgba(201, 90, 90, 0.25) 0%, transparent 70%)'
-                : simStage === 'RECOVERED'
-                ? 'radial-gradient(ellipse, rgba(242, 183, 5, 0.32) 0%, transparent 70%)'
-                : 'radial-gradient(ellipse, rgba(49, 92, 255, 0.25) 0%, transparent 70%)',
-            transition: 'background 800ms ease',
-            pointerEvents: 'none',
-          }}
-        />
-        <CardCarousel />
-      </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          SCROLL 1 — HERO FACE & FLOATING REVENUE TEST COCKPIT
-      ════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          SCROLL 1 â€” HERO: Full-screen Ferris Wheel + Bottom Scrim
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <section
         style={{
           position: 'relative',
           minHeight: '100vh',
+          background: '#000000',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '96px 24px 48px',
-          zIndex: 10,
-          textAlign: 'center',
         }}
       >
-        {/* Top Header Section */}
-        <motion.div
-          initial={prefersReduced ? false : { opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15, ease }}
-          style={{ maxWidth: 820, pointerEvents: 'auto' }}
+        {/* â”€â”€ Full-screen Ferris Wheel Card Layer â”€â”€ */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          <div
-            className="eyebrow"
+          <CardCarousel />
+        </div>
+
+        {/* â”€â”€ Bottom Text Scrim Zone â”€â”€ */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 70%, transparent 100%)',
+            padding: '80px 24px 48px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 28,
+            textAlign: 'center',
+          }}
+        >
+          {/* Eyebrow tag */}
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.1, ease }}
             style={{
-              marginBottom: 18,
-              justifyContent: 'center',
               display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
               padding: '6px 18px',
               borderRadius: 'var(--radius-pill)',
-              background: 'rgba(82, 132, 255, 0.12)',
-              border: '1px solid rgba(82, 132, 255, 0.28)',
-              boxShadow: '0 0 20px rgba(49, 92, 255, 0.2)',
+              background: 'rgba(82, 132, 255, 0.14)',
+              border: '1px solid rgba(82, 132, 255, 0.3)',
+              boxShadow: '0 0 24px rgba(49, 92, 255, 0.2)',
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.09em',
+              color: '#A0B8FF',
+              textTransform: 'uppercase',
             }}
           >
-            <span className="eyebrow__dot" /> EXPLAINABLE AI RECOVERY ENGINE
-          </div>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#5284FF', boxShadow: '0 0 8px #5284FF' }} />
+            EXPLAINABLE AI RECOVERY ENGINE
+          </motion.div>
 
-          <h1
+          {/* Headline */}
+          <motion.h1
+            initial={prefersReduced ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease }}
             style={{
-              fontSize: 'clamp(50px, 6.4vw, 92px)',
+              fontSize: 'clamp(48px, 6.2vw, 88px)',
               fontWeight: 800,
               lineHeight: 1.02,
               letterSpacing: '-0.04em',
-              color: 'var(--text-primary)',
-              margin: '0 0 18px',
+              color: '#FFFFFF',
+              margin: 0,
             }}
           >
             Recover more.<br />
@@ -115,125 +115,107 @@ export default function HeroPage() {
             >
               Lose less.
             </span>
-          </h1>
+          </motion.h1>
 
-          <p
+          {/* Sub-text */}
+          <motion.p
+            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3, ease }}
             style={{
-              fontSize: 'clamp(17px, 2.1vw, 21px)',
+              fontSize: 'clamp(16px, 2.0vw, 20px)',
               lineHeight: 1.6,
-              color: 'var(--text-secondary)',
-              margin: '0 auto',
+              color: 'rgba(160, 168, 192, 0.9)',
+              margin: 0,
               maxWidth: 560,
             }}
           >
             Turn failed payment declines into salvaged recurring revenue with zero issuer friction.
-          </p>
-        </motion.div>
+          </motion.p>
 
-        {/* Center Floating Revenue Test Cockpit & Floating Intelligence Badges */}
-        <div style={{ margin: '32px 0', pointerEvents: 'auto', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-          
-          {/* Floating Glass Badge 1 (Top Left) */}
+          {/* Stat pills */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
-            style={{
-              position: 'absolute',
-              top: -24,
-              left: -140,
-              background: 'rgba(11, 16, 29, 0.85)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(82, 132, 255, 0.3)',
-              borderRadius: 'var(--radius-pill)',
-              padding: '8px 16px',
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(49,92,255,0.2)',
-            }}
-            className="hidden md:flex"
+            initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.4, ease }}
+            style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}
           >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5284FF', boxShadow: '0 0 10px #5284FF' }} />
-            ⚡ 0.04s ML Inference
+            <div
+              style={{
+                background: 'rgba(11, 16, 29, 0.85)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(82, 132, 255, 0.3)',
+                borderRadius: 'var(--radius-pill)',
+                padding: '8px 16px',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(49,92,255,0.2)',
+              }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5284FF', boxShadow: '0 0 10px #5284FF' }} />
+              âš¡ 0.04s ML Inference
+            </div>
+            <div
+              style={{
+                background: 'rgba(11, 16, 29, 0.85)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(242, 183, 5, 0.35)',
+                borderRadius: 'var(--radius-pill)',
+                padding: '8px 16px',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#F2B705',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(242,183,5,0.2)',
+              }}
+            >
+              <CheckCircle2 size={14} />
+              +86% Recovery Rate
+            </div>
           </motion.div>
 
-          {/* Floating Glass Badge 2 (Top Right) */}
+          {/* CTA Buttons */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7, duration: 0.6 }}
-            style={{
-              position: 'absolute',
-              top: -24,
-              right: -140,
-              background: 'rgba(11, 16, 29, 0.85)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(242, 183, 5, 0.35)',
-              borderRadius: 'var(--radius-pill)',
-              padding: '8px 16px',
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#F2B705',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(242,183,5,0.2)',
-            }}
-            className="hidden md:flex"
+            initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5, ease }}
+            style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}
           >
-            <CheckCircle2 className="w-4 h-4 text-status-gold" />
-            +86% Recovery Rate
-          </motion.div>
-
-          <FloatingRevenueTest onStageChange={(stage) => setSimStage(stage)} />
-        </div>
-
-        {/* Bottom CTA & Scroll Indicator */}
-        <motion.div
-          initial={prefersReduced ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.45, ease }}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 20,
-            pointerEvents: 'auto',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
             <Link href="/playground" className="btn btn-primary" style={{ height: 48, padding: '0 32px', fontSize: 15 }}>
-              Launch Simulation Playground <ArrowRight className="w-4.5 h-4.5" />
+              Launch Simulation Playground <ArrowRight size={17} />
             </Link>
             <Link href="/dashboard" className="btn btn-secondary" style={{ height: 48, padding: '0 24px', fontSize: 14 }}>
               Executive Dashboard
             </Link>
-          </div>
+          </motion.div>
 
+          {/* Scroll hint */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              fontSize: 12,
-              color: 'var(--text-muted)',
+              fontSize: 11,
+              color: 'rgba(106, 114, 134, 0.8)',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
             }}
           >
             <span>Scroll to explore architecture</span>
-            <ChevronDown className="w-4 h-4 animate-bounce" />
+            <ChevronDown size={15} className="animate-bounce" />
           </div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          SCROLL 2 — HERO EXTENSION (Continuous Story & Metric Cards)
-      ════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          SCROLL 2 â€” HERO EXTENSION (Continuous Story & Metric Cards)
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <section
         style={{
           position: 'relative',
@@ -245,7 +227,7 @@ export default function HeroPage() {
           padding: '120px 24px',
           zIndex: 10,
           textAlign: 'center',
-          background: 'linear-gradient(180deg, transparent 0%, rgba(4,6,10,0.94) 35%, #04060A 100%)',
+          background: 'linear-gradient(180deg, #000000 0%, rgba(4,6,10,0.98) 35%, #04060A 100%)',
         }}
       >
         <motion.div
@@ -291,7 +273,7 @@ export default function HeroPage() {
               maxWidth: 680,
             }}
           >
-            Every failed payment is an opportunity to salvage ARR. Our hybrid rules + XGBoost ML engine attempts the right recovery path automatically — with zero customer churn.
+            Every failed payment is an opportunity to salvage ARR. Our hybrid rules + XGBoost ML engine attempts the right recovery path automatically â€” with zero customer churn.
           </p>
 
           {/* 3 Pillar Feature Cards */}
@@ -344,3 +326,4 @@ export default function HeroPage() {
     </div>
   )
 }
+
