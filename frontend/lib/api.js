@@ -1,20 +1,28 @@
 // lib/api.js — server-side fetch helpers for Next.js API routes.
-// Automatically prioritizes local backend for fast development and falls back to remote Render.
+// Environment-aware: Goes straight to production URL on Vercel/production,
+// and only checks localhost:8000 in local development mode.
 
-const LOCAL_BASE = 'http://127.0.0.1:8000';
-const REMOTE_BASE = process.env.FASTAPI_BASE_URL;
+const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+const REMOTE_URL = process.env.FASTAPI_BASE_URL || 'https://payment-recovery-api.onrender.com';
+const LOCAL_URL = 'http://127.0.0.1:8000';
 
 export async function apiFetch(path, options = {}) {
   const targets = [];
-  // Prioritize local backend if available
-  targets.push(`${LOCAL_BASE}${path}`);
-  if (REMOTE_BASE && REMOTE_BASE !== LOCAL_BASE) {
-    targets.push(`${REMOTE_BASE}${path}`);
+
+  if (isProduction) {
+    // In production / Vercel: Go DIRECTLY to remote production backend (zero localhost latency)
+    targets.push(`${REMOTE_URL}${path}`);
+  } else {
+    // In local development: Prioritize local FastAPI server, then fall back to remote
+    targets.push(`${LOCAL_URL}${path}`);
+    if (REMOTE_URL && REMOTE_URL !== LOCAL_URL) {
+      targets.push(`${REMOTE_URL}${path}`);
+    }
   }
 
   for (const url of targets) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    const timeout = setTimeout(() => controller.abort(), isProduction ? 15000 : 3500);
 
     try {
       const res = await fetch(url, {
@@ -37,7 +45,7 @@ export async function apiFetch(path, options = {}) {
     } catch (err) {
       clearTimeout(timeout);
       if (err.status) throw err;
-      // Connection refused or timed out on local, proceed to next target
+      // In dev mode, if localhost connection is refused, try next target
     }
   }
 
