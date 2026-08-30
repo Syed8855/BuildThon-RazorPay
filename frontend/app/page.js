@@ -4,10 +4,10 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, ChevronDown, ShieldCheck, Cpu, Zap, Activity, CheckCircle2, Lock } from 'lucide-react'
+import { ArrowRight, ChevronDown, ShieldCheck, Cpu, Zap, CheckCircle2 } from 'lucide-react'
 import FloatingRevenueTest from '@/components/hero/FloatingRevenueTest'
 
-const AlinmaHeroScene = dynamic(() => import('@/components/hero/AlinmaHeroScene'), {
+const CardCarousel = dynamic(() => import('@/components/hero/CardCarousel'), {
   ssr: false,
   loading: () => null,
 })
@@ -67,7 +67,7 @@ export default function HeroPage() {
             pointerEvents: 'none',
           }}
         />
-        <AlinmaHeroScene prefersReduced={!!prefersReduced} simStage={simStage} />
+        <CardCarousel />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
