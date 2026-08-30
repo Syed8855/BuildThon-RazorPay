@@ -237,6 +237,17 @@ export default function PlaygroundPage() {
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchResult, setBatchResult] = useState(null)
   const [batchProgress, setBatchProgress] = useState(0)
+  const [batchSeconds, setBatchSeconds] = useState(0)
+  const [batchError, setBatchError] = useState(null)
+
+  // Increment batchSeconds every second while a batch request is in-flight
+  useEffect(() => {
+    if (!batchLoading || batchError) return
+    const t = setInterval(() => {
+      setBatchSeconds((s) => s + 1)
+    }, 1000)
+    return () => clearInterval(t)
+  }, [batchLoading, batchError])
 
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }))
@@ -333,7 +344,6 @@ export default function PlaygroundPage() {
   }
 
   const runBatchSimulation = async () => {
-    setShowVaulta(true)
     setBatchLoading(true)
     setBatchSeconds(0)
     setBatchError(null)
